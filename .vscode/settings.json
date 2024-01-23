@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.embeddedhtml": "html",
+        "iosfwd": "cpp",
+        "array": "cpp",
+        "iostream": "cpp"
+    }
+}
