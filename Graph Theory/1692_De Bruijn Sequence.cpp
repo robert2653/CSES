@@ -29,55 +29,43 @@ typedef struct {
 } Node;
 const ll llinf = LLONG_MAX;
 const int inf = INT_MAX;
-// const int maxn = 2e5+5;
+const int maxn = 2e5+5;
 // 前特徵連結到後特徵
-int n;
-const int maxn = 1e5;
-set<string> adj[maxn];
-int string_to_int(string s){
+int strbinary_to_int(string s){
+    reverse(s.begin(), s.end());
     int ans = 0;
-    int now = 1;
-    while(!s.empty()){
-        if(s.back() == '1'){
-            ans += now;
-        }
-        now <<= 1;
+    while(s.size() > 0){
+        ans <<= 1;
+        if(s.back() == '1') ans++;
         s.pop_back();
     }
     return ans;
 }
-void find_road(string now, vector<char> &ans){
-    int u = string_to_int(now);
-    while(adj[u].size()){
-        string nxt = *adj[u].begin();
-        adj[u].erase(nxt);
-        find_road(nxt, ans);
+void find_road(int now, string &ans, vector<set<int>> &adj){
+    while(adj[now].size()){
+        int nxt = *adj[now].begin();
+        adj[now].erase(nxt);
+        find_road(nxt, ans, adj);
     }
-    ans.push_back(now[0]);
+    ans.push_back((now & 1) + '0');
 }
-void generate_nums(string s){
+void generate_nums(string s, int n, vector<set<int>> &adj){
     if(s.size() == n){
-        adj[string_to_int(s.substr(0, n-1))].insert(s.substr(1, n-1));
-        string a = s.substr(0, n-1), b = s.substr(1, n-1);
+        adj[strbinary_to_int(s.substr(0, n - 1))].insert(strbinary_to_int(s.substr(1, n - 1)));
+        // cerr << strbinary_to_int(s.substr(0, n - 1)) << " " << strbinary_to_int(s.substr(1, n - 1));
         return;
     }
-    generate_nums(s + "1");
-    generate_nums(s + "0");
+    generate_nums(s + "0",  n, adj);
+    generate_nums(s + "1", n, adj);
 }
 void solve(){
-    cin >> n;   string s;
-    if(n == 1){
-        cout << "10";
-        return;
-    }
-    generate_nums(s);
-    vector<char> ans;
-    rep(i, 2, n) s.push_back('0');
-    lrep(i, 2, n) ans.push_back('0');
-    find_road(s, ans);
-    for(auto i : ans){
-        cout << i;
-    }
+    int n;  cin >> n;
+    vector<set<int>> adj(1 << n + 5);
+    generate_nums("", n, adj);
+    string ans;
+    find_road(0, ans, adj);
+    for(int i = 2; i < n; i++) ans.push_back('0');
+    cout << ans;
 }
 int main(){
     IO;
