@@ -42,12 +42,31 @@ struct nCr {
 void solve(){
     nCr ncr(mod);
     int ans = 0;
-    int n, m; cin >> n >> m;
-    for (int i = 1; i <= n; i++) {
-        int x = ncr.fast_exp(m, __gcd(i, n));
-        (x *= ncr.inverse(n)) %= mod;
-        (ans += x) %= mod;
+    int n; cin >> n;
+    int G = 4;
+    int n0 = n * n;
+    int n90 = 0;
+    int n180 = 0;
+    int n270 = 0;
+    // odd = 2 + 4 + 6 + ... + (n - 1) + 1
+    // even = 1 + 3 + 5 + ... + (n - 1)
+    if (n & 1) {
+        int d = (n - 1 - 2) / 2 + 1;
+        int x = 2 + n - 1;
+        n270 = n90 = d * x / 2 + 1;
     }
+    else {
+        int d = (n - 1 - 1) / 2 + 1;
+        int x = 1 + n - 1;
+        n270 = n90 = d * x / 2;
+    }
+    n180 = (n * n + 1) / 2;
+
+    ans += ncr.fast_exp(2, n0);
+    ans += ncr.fast_exp(2, n90);
+    ans += ncr.fast_exp(2, n180);
+    ans += ncr.fast_exp(2, n270);
+    ans = (ans % mod * ncr.inverse(G)) % mod;
     cout << ans << "\n";
 }
 

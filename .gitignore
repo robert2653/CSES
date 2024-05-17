@@ -2,4 +2,5 @@
 *.out
 test.cpp
 test.exe
+test.c
 .vscode
