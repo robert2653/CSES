@@ -4,3 +4,4 @@ test.cpp
 test.exe
 test.c
 .vscode
+*.cph
