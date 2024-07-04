@@ -1,63 +1,50 @@
 #include <bits/stdc++.h>
-#include <ext/pb_ds/assoc_container.hpp>
-#include <ext/pb_ds/tree_policy.hpp>
-#define all(x) (x).begin(), (x).end()
-#define pii pair<int, int> 
-#define endl "\n"
-#define int long long
 using namespace std;
-using namespace __gnu_pbds;
-template<typename T>
-using pbds_set = tree<T, null_type, less<T>, rb_tree_tag, tree_order_statistics_node_update>;
-template<typename T>
-using pbds_multiset = tree<T, null_type, less_equal<T>, rb_tree_tag, tree_order_statistics_node_update>;
 
-const int llinf = 4e18;
-const int inf = 2e9;
-const int mod = 1e9 + 7;
-const int maxn = 2e5 + 5;
+int get_centroid(vector<vector<int>> &adj, vector<int> &vis, vector<int> &siz, int u, int pre) {
+    auto get_sz = [&](auto &&self, int u, int pre) -> void {
+        siz[u] = 1;
+        for (int v : adj[u]) {
+            if (v == pre) continue;
+            if (vis[v]) continue;
+            self(self, v, u);
+            siz[u] += siz[v];
+        }
+    };
+    auto get_cen = [&](auto &&self, int tot_sz, int u, int pre) -> int {
+        for (auto v : adj[u]) {
+            if (v == pre) continue;
+            if (vis[v]) continue;
+            if (siz[v] * 2 > tot_sz){
+                return self(self, tot_sz, v, u);
+            }
+        }
+        return u;
+    };
+    get_sz(get_sz, u, pre);
+    return get_cen(get_cen, siz[u], u, pre);
+}
 
 void solve(){
     int n; cin >> n;
-    vector<vector<int>> adj(n + 1);
+    vector<vector<int>> adj(n);
+    vector<int> siz(n);
+    vector<int> vis(n);
     for (int i = 1; i < n; i++) {
         int u, v; cin >> u >> v;
+        u--; v--;
         adj[u].push_back(v);
         adj[v].push_back(u);
     }
-    int ans = 0;
-    auto dfs = [&](auto self, int u, int pre) -> int {
-        int subsz_sum = 0;  // u 以下的 size
-        bool u_is_centroid = 1;
-        for (int v : adj[u]) {
-            if (v == pre) continue;
-            int subsz = self(self, v, u);
-            if (subsz > n / 2) {
-                u_is_centroid = 0;
-            }
-            subsz_sum += subsz;
-        }
-        if (n - 1 - subsz_sum > n / 2) {    // u 以上的 size
-            u_is_centroid = 0;
-        }
-        if (u_is_centroid) {
-            ans = u;
-        }
-        return subsz_sum + 1;
-    };
-    dfs(dfs, 1, 0);
-    cout << ans << "\n";
+    cout << get_centroid(adj, vis, siz, 0, -1) + 1 << "\n";
 }
-signed main(){
-    #ifdef LOCAL
-    freopen("input.txt", "r", stdin);
-    freopen("output.txt", "w", stdout);
-    #endif
+
+int main(){
     ios_base::sync_with_stdio(0);
     cin.tie(nullptr);
     int t = 1;
     // cin >> t;
-    while(t--){
+    while (t--) {
         solve();
     }
 }

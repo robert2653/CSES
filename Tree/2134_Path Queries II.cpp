@@ -1,149 +1,262 @@
 #include <bits/stdc++.h>
-#pragma GCC optimize ("O3")
 #define all(x) (x).begin(), (x).end()
 #define pii pair<int, int> 
 #define endl "\n"
-#define int long long
 using namespace std;
 
-template <class Node>
-struct Seg {
+struct HLD {
     int n;
-    vector<Node> tree;
-    Seg (vector<Node> init_){
-        n = init_.size() - 1;
-        tree.resize(4 * n);
-        function <void(int, int, int)> build = [&](int now, int l, int r) {
-            if (l == r) {
-                tree[now] = init_[l];
+    vector<int> siz, top, dep, parent, in, out, seq;
+    vector<vector<int>> adj;
+    int cur;
+    
+    HLD() {}
+    HLD(int n) {
+        init(n);
+    }
+    void init(int n) {
+        this->n = n;
+        siz.resize(n);
+        top.resize(n);
+        dep.resize(n);
+        parent.resize(n);
+        in.resize(n);
+        out.resize(n);
+        seq.resize(n);
+        cur = 0;
+        adj.assign(n, {});
+    }
+    void addEdge(int u, int v) {
+        adj[u].push_back(v);
+        adj[v].push_back(u);
+    }
+    void work(int root = 0) {
+        top[root] = root;
+        dep[root] = 0;
+        parent[root] = -1;
+        dfs1(root);
+        dfs2(root);
+    }
+    void dfs1(int u) {
+        if (parent[u] != -1) {
+            adj[u].erase(find(adj[u].begin(), adj[u].end(), parent[u]));
+        }
+        
+        siz[u] = 1;
+        for (auto &v : adj[u]) {
+            parent[v] = u;
+            dep[v] = dep[u] + 1;
+            dfs1(v);
+            siz[u] += siz[v];
+            if (siz[v] > siz[adj[u][0]]) {
+                swap(v, adj[u][0]);
+            } // 讓 adj[u][0] 是重子節點
+        }
+    }
+    void dfs2(int u) {
+        in[u] = cur++;
+        seq[in[u]] = u; // dfn 對應的編號
+        for (auto v : adj[u]) {
+            top[v] = v == adj[u][0] ? top[u] : v;
+            dfs2(v);
+        }
+        out[u] = cur;
+    }
+    int lca(int u, int v) {
+        while (top[u] != top[v]) {
+            if (dep[top[u]] > dep[top[v]]) {
+                u = parent[top[u]];
+            } else {
+                v = parent[top[v]];
+            }
+        }
+        return dep[u] < dep[v] ? u : v;
+    }
+    
+    int dist(int u, int v) {
+        return dep[u] + dep[v] - 2 * dep[lca(u, v)];
+    }
+    int jump(int u, int k) {
+        if (dep[u] < k) {
+            return -1;
+        }
+        int d = dep[u] - k;
+        while (dep[top[u]] > d) {
+            u = parent[top[u]];
+        }
+        return seq[in[u] - dep[u] + d];
+    }
+    bool isAncester(int u, int v) {
+        // 判斷 u 是否是 v 的祖先
+        return in[u] <= in[v] && in[v] < out[u];
+    }
+    int rootedParent(int u, int v) {
+        // 根據新根節點 u 計算 v 的父節點
+        swap(u, v);
+        if (u == v) {
+            return u;
+        }
+        if (!isAncester(u, v)) {
+            return parent[u];
+        }
+        auto it = upper_bound(adj[u].begin(), adj[u].end(), v, [&](int x, int y) {
+            return in[x] < in[y];
+        }) - 1;
+        return *it;
+    }
+    int rootedSize(int u, int v) {
+        // 根據新根節點 u 計算子樹 v 的大小
+        if (u == v) {
+            return n;
+        }
+        if (!isAncester(v, u)) {
+            return siz[v];
+        }
+        return n - siz[rootedParent(u, v)];
+    }
+    int rootedLca(int a, int b, int c) {
+        // 根據新的根節點計算三個節點 a、b 和 c 的最近公共祖先
+        return lca(a, b) ^ lca(b, c) ^ lca(c, a);
+    }
+};
+
+template <class Info>
+struct Seg {    // 左開右閉寫法
+    int n;
+    vector<Info> info;
+    Seg(int n_, Info v_ = Info()) {
+        init(n_, v_);
+    }
+    template <class T>
+    Seg(vector<T> init_) {
+        init(init_);
+    }
+    void init(int n_, Info v_ = Info()) {
+        init(vector(n_, v_));
+    }
+    template <class T>
+    void init(vector<T> init_) {
+        n = init_.size();
+        info.assign(4 << __lg(n), Info());
+        function <void(int, int, int)> build = [&](int p, int l, int r) {
+            if (r - l == 1) {
+                info[p] = init_[l];
                 return;
             }
             int m = (l + r) / 2;
-            build(now << 1, l, m);
-            build((now << 1) + 1, m + 1, r);
-            pull(now);
+            build(p * 2, l, m);
+            build(p * 2 + 1, m, r);
+            pull(p);
         };
-        build(1, 1, n);
+        build(1, 0, n);
     }
-    Node query(int l, int r, int ql, int qr, int now){
-        int m = (l + r) >> 1;
-        if(qr < l || ql > r){
-            return Node();
-        }
-        if(ql <= l && r <= qr){
-            return tree[now];
-        }
-	    return query(l, m, ql, qr, now << 1) + query(m + 1, r, ql, qr, (now << 1) + 1);
-    }
-    Node query(int l, int r) { return query(1, n, l, r, 1); }
-    void pull(int now){
-        tree[now] = tree[now << 1] + tree[(now << 1) + 1];
-    }
-    void modify(int l, int r, int idx, int now, int add){
-        if(l == r){
-// ------------------------------how to modify ?-----------------------------------
-            tree[now].mx = add;
-// --------------------------------------------------------------------------------
+    void pull(int p) { info[p] = info[p * 2] + info[p * 2 + 1]; }
+    void modify(int p, int l, int r, int x, const Info &v) {
+        if (r - l == 1) {
+            info[p] = v;
             return;
         }
-        int m = (l + r) >> 1;
-        if(idx <= m){
-            modify(l, m, idx, now << 1, add);
+        int m = (l + r) / 2;
+        if (x < m) {
+            modify(2 * p, l, m, x, v);
+        } else {
+            modify(2 * p + 1, m, r, x, v);
         }
-        else {
-            modify(m + 1, r, idx, (now << 1) + 1, add);
+        pull(p);
+    }
+    void modify(int p, const Info &i) {
+        modify(1, 0, n, p, i);
+    }
+    Info query(int p, int l, int r, int ql, int qr) {
+        if (qr <= l || ql >= r) return Info();
+        if (ql <= l && r <= qr) return info[p];
+        int m = (l + r) / 2;
+	    return query(p * 2, l, m, ql, qr) + query(p * 2 + 1, m, r, ql, qr);
+    }
+    Info query(int ql, int qr) { return query(1, 0, n, ql, qr); }
+    template<class F>   // 尋找區間內，第一個符合條件的
+    int findFirst(int p, int l, int r, int x, int y, F &&pred) {
+        if (l >= y || r <= x) {
+            return -1;
         }
-        pull(now);
+        if (l >= x && r <= y && !pred(info[p])) {
+            return -1;
+        }
+        if (r - l == 1) {
+            return l;
+        }
+        int m = (l + r) / 2;
+        int res = findFirst(2 * p, l, m, x, y, pred);
+        if (res == -1) {
+            res = findFirst(2 * p + 1, m, r, x, y, pred);
+        }
+        return res;
     }
-    void modify(int idx, int add) { modify(1, n, idx, 1, add); }
-};
-// ------------------------define structure and info plus------------------------
-struct Node {
-    int mx;
-    Node() {
-        mx = 0;
+    template<class F>   // 若要找 last，先右子樹遞迴即可
+    int findFirst(int l, int r, F &&pred) {
+        return findFirst(1, 0, n, l, r, pred);
     }
 };
-Node operator + (const Node &a, const Node &b) {
-    Node c;
-    c.mx = max(a.mx, b.mx);
-    return c;
+// ---define structure and info plus---
+struct Info {
+    int max;
+    Info() { max = 0; }
+    Info(int _max) { max = _max; }
+};
+Info operator + (const Info &a, const Info &b) {
+    return { max(a.max, b.max) };
 }
 
 void solve(){
     int n, q; cin >> n >> q;
-    clock_t now = clock();
-    vector<vector<int>> tree(n + 1, vector<int>());
-    cerr << ((double)(clock() - now)) / CLOCKS_PER_SEC << "\n";
-    vector<int> depth(n + 1), sz(n + 1), par(n + 1), heavy_son(n + 1), node_val(n + 1);
-    for (int i = 1; i <= n; i++) cin >> node_val[i];
+    HLD hld(n);
+    vector<int> a(n);
+    for (int i = 0; i < n; i++) {
+        cin >> a[i];
+    }
     for (int i = 1; i < n; i++) {
         int u, v; cin >> u >> v;
-        tree[u].push_back(v);
-        tree[v].push_back(u);
+        u--; v--;
+        hld.addEdge(u, v);
     }
-    cerr << ((double)(clock() - now)) / CLOCKS_PER_SEC << "\n";
-    auto dfs = [&](auto self, int u, int pre) -> void {
-        sz[u] = 1;
-        par[u] = pre;
-        heavy_son[u] = -1;
-        for (int v : tree[u]) {
-            if (v == pre) continue;
-            depth[v] = depth[u] + 1;
-            self(self, v, u);
-            sz[u] += sz[v];
-            if (heavy_son[u] == -1 || sz[v] > sz[heavy_son[u]]) heavy_son[u] = v;
-        }
-    };
-    dfs(dfs, 1, 0);
-    cerr << ((double)(clock() - now)) / CLOCKS_PER_SEC << "\n";
-    vector<int> top(n + 1), dfn(n + 1); // 鏈頭
-    vector<Node> init(n + 1, Node());
-    int order = 0;
-    auto link = [&](auto self, int u, int head) -> void {
-        top[u] = head;
-        dfn[u] = ++order;
-        init[order].mx = node_val[u];
-        if (heavy_son[u] != -1) self(self, heavy_son[u], head);   // 當前鏈
-        for (int v : tree[u]) {
-            if (v == par[u] || v == heavy_son[u]) continue;
-            // 進新鏈
-            self(self, v, v);
-        }
-    };
-    link(link, 1, 1);
-    Seg<Node> seg(init);
-    auto query = [&](int a, int b) -> int {
-        int ans = 0;
-        while (top[a] != top[b]) {
-            if (depth[top[a]] < depth[top[b]]) swap(a, b);  // a 的 head 比較高
-            ans = max(ans, seg.query(dfn[top[a]], dfn[a]).mx);
-            a = par[top[a]];    // 跳鏈
-        }
-        if (dfn[a] > dfn[b]) swap(a, b);    // a 比 b 低要換，用 depth 也行
-        ans = max(ans, seg.query(dfn[a], dfn[b]).mx);
-        return ans;
-    };
+    hld.work();
+    vector<Info> init_(n);
+    for (int i = 0; i < n; i++) {
+        init_[hld.in[i]].max = a[i];
+    }
+    Seg<Info> seg(init_);
     for (int i = 1; i <= q; i++) {
         int op; cin >> op;
         if (op == 1) {
-            int s, x; cin >> s >> x;
-            seg.modify(dfn[s], x);
+            int u, x; cin >> u >> x;
+            u--;
+            seg.modify(hld.in[u], Info(x));
         }
         else {
             int a, b; cin >> a >> b;
-            cout << query(a, b) << "\n";
+            a--; b--;
+            int res = 0;
+            while (hld.top[a] != hld.top[b]) { // a, b 不在同一條鍊上
+                if (hld.dep[hld.top[a]] > hld.dep[hld.top[b]]) {
+                    swap(a, b); // 選擇較深的 b 跳鍊
+                }
+                res = max(res, seg.query(hld.in[hld.top[b]], hld.in[b] + 1).max);
+                b = hld.parent[hld.top[b]];
+            }
+            if (hld.dep[a] > hld.dep[b]) {
+                swap(a, b); // 確保 a 比 b 淺, in[a] < in[b]
+            }
+            res = max(res, seg.query(hld.in[a], hld.in[b] + 1).max);
+            cout << res << " ";
         }
     }
 }
-signed main(){
-    // freopen("input.txt", "r", stdin);
-    // freopen("output.txt", "w", stdout);
-    ios_base::sync_with_stdio(0);
+int main(){
+    ios_base::sync_with_stdio(false);
     cin.tie(nullptr);
     int t = 1;
     // cin >> t;
-    while(t--){
+    while (t--) {
         solve();
     }
 }
