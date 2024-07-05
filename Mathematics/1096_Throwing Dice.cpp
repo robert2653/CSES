@@ -1,58 +1,70 @@
 #include <bits/stdc++.h>
 using namespace std;
-const int mod = 1e9 + 7;
-#define int long long
+using ll = long long;
+
+template<class T>
 struct Mat {
-    int n;
-    vector<vector<int>> matrix;
-    Mat(int n) {
-        this->n = n;
-        matrix.resize(n);
-        for (int i = 0; i < n; i++) {
-            matrix[i].resize(n);
-        }
+    int m, n;
+    constexpr static ll mod = 1e9 + 7;
+    vector<vector<T>> matrix;
+    Mat(int n_ = 0) { init(n_, n_); }
+    Mat(int m_, int n_) { init(m_, n_); }
+    Mat(vector<vector<T>> matrix_) { init(matrix_); }
+    void init(int m_, int n_) {
+        m = m_; n = n_;
+        matrix.assign(m, vector<T>(n));
     }
-    Mat(vector<vector<int>> matrix) {
-        this->n = matrix.size();
-        this->matrix = matrix;
+    void init(vector<vector<T>> &matrix_) {
+        m = matrix_.size();
+        n = matrix_[0].size();
+        matrix = matrix_;
     }
-    Mat unit(int n) {   // 單位矩陣
-        Mat res(n);
+    vector<vector<T>> unit(int n) {   // 單位矩陣
+        vector<vector<T>> res(n, vector<T>(n));
         for (int i = 0; i < n; i++) {
-            res.matrix[i][i] = 1;
+            res[i][i] = 1;
         }
         return res;
     }
-    Mat operator * (Mat b) {
-        Mat ans(n);
-        for (int i = 0; i < n; i++) {
+    constexpr Mat &operator*=(const Mat& rhs) & {
+        assert(matrix[0].size() == rhs.matrix.size());
+        int m = matrix.size(), k = matrix[0].size(), n = rhs.matrix[0].size();
+        Mat ans(m, n);
+        for (int i = 0; i < m; i++) {
             for (int j = 0; j < n; j++) {
-                for (int k = 0; k < n; k++) {
-                    (ans.matrix[i][j] += (matrix[i][k] * b.matrix[k][j] % mod)) %= mod;
+                for (int l = 0; l < k; l++) {
+                    (ans.matrix[i][j] += (matrix[i][l] * rhs.matrix[l][j] % mod)) %= mod;
                 }
             }
         }
-        return ans;
+        matrix = ans.matrix;
+        return *this;
     }
-    Mat operator *= (Mat b) { *this = *this * b; return *this; }
-    Mat operator ^ (int p) {
-        Mat x = *this;
-        Mat ans = unit(n);
+    constexpr Mat &operator^=(ll p) & {
+        assert(m == n); assert(p >= 0);
+        Mat ans(p-- == 0 ? unit(m) : matrix);
         while (p > 0) {
-            if (p & 1) {
-                ans *= x;
-            }
-            x *= x;
+            if (p & 1) ans *= *this;
+            *this *= *this;
             p >>= 1;
         }
-        return ans;
+        matrix = ans.matrix;
+        return *this;
     }
-    Mat operator ^= (int p) { *this = *this ^ p; return *this; }
+    friend Mat operator*(Mat lhs, const Mat &rhs) {
+        lhs *= rhs;
+        return lhs;
+    }
+    friend Mat operator^(Mat lhs, const ll p) {
+        lhs ^= p;
+        return lhs;
+    }
 };
-signed main() {
-    int n, ans; cin >> n;
-    vector v(6, vector<int>(6));
-    vector<int> init(12);
+
+int main() {
+    ll n, ans; cin >> n;
+    vector v(6, vector<ll>(6));
+    vector<ll> init(12);
     init[0] = 1;
     for (int i = 1; i <= 11; i++) {
         for (int d = -6; d <= -1; d++) {
@@ -71,8 +83,8 @@ signed main() {
         ans = init[n];
     }
     else {
-        Mat mat(v);
-        Mat x(6);
+        Mat<ll> mat(v);
+        Mat<ll> x(6);
         for (int i = 0; i < 6; i++) x.matrix[i][0] = 1;
         for (int i = 0, now = 1; i < 5; i++) {
             x.matrix[i][now] = 1;

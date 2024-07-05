@@ -1,76 +1,82 @@
 #include <bits/stdc++.h>
-#define all(x) (x).begin(), (x).end()
-#define pii pair<int, int> 
-#define endl "\n"
-#define int long long
 using namespace std;
-const int mod = 1e9 + 7;
-const int inf = 4e18;
+using ll = long long;
+constexpr ll inf = 4e18;
 
 // FolydWarShall
+template<class T>
 struct Mat {
-    int n;
-    vector<vector<int>> matrix;
-    Mat(int n) {
-        this->n = n;
-        matrix.resize(n);
-        for (int i = 0; i < n; i++) {
-            matrix[i].resize(n);
-        }
+    int m, n;
+    constexpr static ll mod = 1e9 + 7;
+    vector<vector<T>> matrix;
+    Mat(int n_ = 0) { init(n_, n_); }
+    Mat(int m_, int n_) { init(m_, n_); }
+    Mat(vector<vector<T>> matrix_) { init(matrix_); }
+    void init(int m_, int n_) {
+        m = m_; n = n_;
+        matrix.assign(m, vector<T>(n));
     }
-    Mat(vector<vector<int>> matrix) {
-        this->n = matrix.size();
-        this->matrix = matrix;
+    void init(vector<vector<T>> &matrix_) {
+        m = matrix_.size();
+        n = matrix_[0].size();
+        matrix = matrix_;
     }
-    Mat unit(int n) {   // 單位矩陣
-        Mat res(n);
+    vector<vector<T>> unit(int n) {   // 單位矩陣
+        vector<vector<T>> res(n, vector<T>(n));
         for (int i = 0; i < n; i++) {
-            res.matrix[i][i] = 1;
+            res[i][i] = 1;
         }
         return res;
     }
-    Mat operator * (Mat b) {
-        vector v(n, vector<int>(n, inf));
-        Mat ans(v);
-        for (int i = 0; i < n; i++) {
+    constexpr Mat &operator*=(const Mat& rhs) & {
+        assert(matrix[0].size() == rhs.matrix.size());
+        int m = matrix.size(), k = matrix[0].size(), n = rhs.matrix[0].size();
+        Mat ans(vector<vector<T>>(m, vector<T>(n, inf)));
+        for (int i = 0; i < m; i++) {
             for (int j = 0; j < n; j++) {
-                for (int k = 0; k < n; k++) {
-                    ans.matrix[i][j] = min(ans.matrix[i][j], matrix[i][k] + b.matrix[k][j]);
+                for (int l = 0; l < k; l++) {
+                    ans.matrix[i][j] = min(ans.matrix[i][j], matrix[i][l] + rhs.matrix[l][j]);
                 }
             }
         }
-        return ans;
+        matrix = ans.matrix;
+        return *this;
     }
-    Mat operator *= (Mat b) { *this = *this * b; return *this; }
-    Mat operator ^ (int p) {
-        if (p == 0) return unit(n);
-        Mat ans = *this; p--;
+    constexpr Mat &operator^=(ll p) & {
+        assert(m == n); assert(p >= 0);
+        Mat ans(p-- == 0 ? unit(m) : matrix);
         while (p > 0) {
-            if (p & 1) {
-                ans *= *this;
-            }
+            if (p & 1) ans *= *this;
             *this *= *this;
             p >>= 1;
         }
-        return ans;
+        matrix = ans.matrix;
+        return *this;
     }
-    Mat operator ^= (int p) { *this = *this ^ p; return *this; }
+    friend Mat operator*(Mat lhs, const Mat &rhs) {
+        lhs *= rhs;
+        return lhs;
+    }
+    friend Mat operator^(Mat lhs, const ll p) {
+        lhs ^= p;
+        return lhs;
+    }
 };
 
 void solve(){
     int n, m, k; cin >> n >> m >> k;
-    vector g(n, vector<int>(n, inf));
+    vector g(n, vector<ll>(n, inf));
     for (int i = 0; i < m; i++) {
         int u, v, w; cin >> u >> v >> w;
         u--; v--;
-        g[u][v] = min(g[u][v], w);
+        g[u][v] = min<ll>(g[u][v], w);
     }
-    Mat mat(g);
+    Mat<ll> mat(g);
     mat = mat ^ k;
     cout << (mat.matrix[0][n - 1] == inf ? -1 : mat.matrix[0][n - 1]) << "\n";
 }
 
-signed main(){
+int main(){
     ios_base::sync_with_stdio(0);
     cin.tie(nullptr);
     int t = 1;
