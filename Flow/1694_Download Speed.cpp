@@ -1,62 +1,94 @@
 // Dinic
 #include <bits/stdc++.h>
 using namespace std;
-#define all(x) (x).begin(), (x).end()
-const int inf = 2e9;
-#define int long long
-struct edge {
-    int v, w, rev_id;
+using ll = long long;
+
+template<class T>
+struct Dinic {
+    struct Edge {
+        int to;
+        T flow, cap; // 流量跟容量
+    };
+    int n, m, s, t;
+    T INF_FlOW = numeric_limits<T>::max() / 2;
+    vector<vector<int>> adj; // 此點對應的 edges 編號
+    vector<Edge> edges; // 幫每個 edge 編號
+    vector<int> dis, ptr;
+    Dinic() { init(); }
+    Dinic(int n_) { init(n_); }
+    void init(int n_ = 0) {
+        n = n_;
+        m = 0;
+        adj.resize(n);
+        dis.resize(n);
+        ptr.resize(n);
+        edges.clear();
+    }
+    void add_edge(int u, int v, T cap) {
+        // 偶數 id 是正向邊
+        edges.push_back({ v, 0, cap });
+        edges.push_back({ u, 0, 0 });
+        adj[u].push_back(m++);
+        adj[v].push_back(m++);
+    }
+    bool bfs() {
+        fill(dis.begin(), dis.end(), -1);
+        dis[s] = 0; queue<int> q;
+        q.push(s);
+        while (!q.empty() && dis[t] == -1) {
+            int u = q.front(); q.pop();
+            for (int id : adj[u]) {
+                Edge &e = edges[id];
+                if (e.flow == e.cap) continue;
+                if (dis[e.to] == -1) {
+                    dis[e.to] = dis[u] + 1;
+                    q.push(e.to);
+                }
+            }
+        }
+        return dis[t] != -1;
+    }
+    T dfs(int u, T flow) {
+        if (flow == 0) return 0;
+        if (u == t) return flow;
+        for (int &cur = ptr[u]; cur < (int)adj[u].size(); cur++) {
+            Edge &e = edges[adj[u][cur]];
+            if (dis[u] + 1 != dis[e.to]) continue;
+            if (e.cap - e.flow < 1) continue;
+            T mn = dfs(e.to, min(flow, e.cap - e.flow));
+            if (mn > 0) {
+                e.flow += mn;
+                edges[adj[u][cur] ^ 1].flow -= mn;
+                return mn;
+            }
+        }
+        return 0;   // 到不了終點就會 return 0
+    }
+    T work(int s_, int t_) {
+        s = s_; t = t_;
+        T flow = 0;
+        while (bfs()) {
+            fill(ptr.begin(), ptr.end(), 0);
+            while (T res = dfs(s, INF_FlOW)) {
+                flow += res;
+            }
+        }
+        return flow;
+    }
 };
-int n, m, ans = 0;
-vector<edge> adj[505];
-vector<int> lev(505), vis(505);
-bool label_level(){ // 標記深度，如果到不了終點 return false
-    fill(all(lev), -1); lev[1] = 0;
-    queue<int> q;   q.push(1);
-    while (!q.empty()) {
-        int u = q.front(); q.pop();
-        for (auto &[v, w, rev_id] : adj[u]) {
-            if (w > 0 && lev[v] == -1) {
-                q.push(v);
-                lev[v] = lev[u] + 1;
-            }
-        }
-    }
-    return (lev[n] == -1 ? false : true);
-}
-int dfs(int u, int flow){
-    if (u == n) return flow;
-    for (auto &[v, w, rev_id] : adj[u]) {
-        if (lev[v] == lev[u] + 1 && !vis[v] && w > 0) {
-            vis[v] = true;
-            int ret = dfs(v, min(flow, w));
-            if (ret > 0) {
-                w -= ret;
-                adj[v][rev_id].w += ret;
-                return ret;
-            }
-        }
-    }
-    return 0;   // 到不了終點就會 return 0
-}
+
 void solve(){
-    cin >> n >> m;
+    int n, m; cin >> n >> m;
+    Dinic<ll> g(n);
     for (int i = 0; i < m; i++) {
-        int u, v, w; cin >> u >> v >> w;
-        adj[u].push_back({v, w, (int)adj[v].size()});
-        adj[v].push_back({u, 0, (int)adj[u].size() - 1});
+        int u, v, cap; cin >> u >> v >> cap;
+        u--; v--;
+        g.add_edge(u, v, cap);
     }
-    while (label_level()) {
-        while (true) {
-            fill(all(vis), 0);
-            int tmp = dfs(1, inf);
-            if (tmp == 0) break;
-            ans += tmp;
-        }
-    }
-    cout << ans;
+    cout << g.work(0, n - 1);
 }
-signed main(){
+
+int main(){
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
     int t = 1;

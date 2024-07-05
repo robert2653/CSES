@@ -1,97 +1,127 @@
+// Dinic
 #include <bits/stdc++.h>
 using namespace std;
-#define all(x) (x).begin(), (x).end()
-const int inf = 2e9;
-#define int long long
-struct edge {
-    int v, w, rev_id;
+using ll = long long;
+
+template<class T>
+struct Dinic {
+    struct Edge {
+        int to;
+        T flow, cap; // 流量跟容量
+    };
+    int n, m, s, t;
+    T INF_FlOW = numeric_limits<T>::max() / 2;
+    vector<vector<int>> adj; // 此點對應的 edges 編號
+    vector<Edge> edges; // 幫每個 edge 編號
+    vector<int> dis, ptr;
+    Dinic() { init(); }
+    Dinic(int n_) { init(n_); }
+    void init(int n_ = 0) {
+        n = n_;
+        m = 0;
+        adj.resize(n);
+        dis.resize(n);
+        ptr.resize(n);
+        edges.clear();
+    }
+    void add_edge(int u, int v, T cap) {
+        // 偶數 id 是正向邊
+        edges.push_back({ v, 0, cap });
+        edges.push_back({ u, 0, 0 });
+        adj[u].push_back(m++);
+        adj[v].push_back(m++);
+    }
+    bool bfs() {
+        fill(dis.begin(), dis.end(), -1);
+        dis[s] = 0; queue<int> q;
+        q.push(s);
+        while (!q.empty() && dis[t] == -1) {
+            int u = q.front(); q.pop();
+            for (int id : adj[u]) {
+                Edge &e = edges[id];
+                if (e.flow == e.cap) continue;
+                if (dis[e.to] == -1) {
+                    dis[e.to] = dis[u] + 1;
+                    q.push(e.to);
+                }
+            }
+        }
+        return dis[t] != -1;
+    }
+    T dfs(int u, T flow) {
+        if (flow == 0) return 0;
+        if (u == t) return flow;
+        for (int &cur = ptr[u]; cur < (int)adj[u].size(); cur++) {
+            Edge &e = edges[adj[u][cur]];
+            if (dis[u] + 1 != dis[e.to]) continue;
+            if (e.cap - e.flow < 1) continue;
+            T mn = dfs(e.to, min(flow, e.cap - e.flow));
+            if (mn > 0) {
+                e.flow += mn;
+                edges[adj[u][cur] ^ 1].flow -= mn;
+                return mn;
+            }
+        }
+        return 0;   // 到不了終點就會 return 0
+    }
+    T work(int s_, int t_) {
+        s = s_; t = t_;
+        T flow = 0;
+        while (bfs()) {
+            fill(ptr.begin(), ptr.end(), 0);
+            while (T res = dfs(s, INF_FlOW)) {
+                flow += res;
+            }
+        }
+        return flow;
+    }
 };
-int n, m, ans = 0;
-vector<edge> adj[505];
-vector<int> lev(505), vis(505);
-int g[505][505];
-bool label_level(){ // 標記深度，如果到不了終點 return false
-    fill(all(lev), -1); lev[1] = 0;
-    queue<int> q;   q.push(1);
-    while (!q.empty()) {
-        int u = q.front(); q.pop();
-        for (auto i : adj[u]) {
-            if (i.w > 0 && lev[i.v] == -1) {
-                q.push(i.v);
-                lev[i.v] = lev[u] + 1;
-            }
-        }
-    }
-    return (lev[n] == -1 ? false : true);
-}
-int dfs(int u, int flow){
-    if (u == n) return flow;
-    for (auto &i : adj[u]) {
-        if (lev[i.v] == lev[u] + 1 && !vis[i.v] && i.w > 0) {
-            vis[i.v] = true;
-            int ret = dfs(i.v, min(flow, i.w));
-            if (ret > 0) {
-                i.w -= ret;
-                adj[i.v][i.rev_id].w += ret;
-                return ret;
-            }
-        }
-    }
-    return 0;   // 到不了終點就會 return 0
-}
-void add_edge(int u, int v, int w) {
-    adj[u].push_back({v, w, (int)adj[v].size()});
-    adj[v].push_back({u, w, (int)adj[u].size() - 1});
-    g[u][v] = g[v][u] = 1;
-}
-void dinic() {
-    while (label_level()) {
-        while (true) {
-            fill(all(vis), 0);
-            int tmp = dfs(1, inf);
-            if (tmp == 0) break;
-            ans += tmp;
-        }
-    }
-}
 
 void solve(){
-    cin >> n >> m;
+    int n, m; cin >> n >> m;
+    Dinic<int> g(n);
     for (int i = 0; i < m; i++) {
-        int u, v; cin >> u >> v;
-        add_edge(u, v, 1);
+        int u, v, cap = 1;
+        cin >> u >> v;
+        u--; v--;
+        g.add_edge(u, v, cap);
+        g.add_edge(v, u, cap);
     }
-    unordered_set<int> reach;
+    int res = g.work(0, n - 1);
+    cout << res << "\n";
+    if (res == 0) return;
+
+    vector<int> vis(n);
     auto find = [&](auto self, int u) -> void {
         if (!vis[u]) {
             vis[u] = 1;
-            reach.insert(u);
-            for (auto [v, w, _] : adj[u]){
-                if(w > 0){
-                    self(self, v);
+            for (int id : g.adj[u]) {
+                auto e = g.edges[id];
+                if (e.cap - e.flow > 0) {
+                    self(self, e.to);
                 }
             }
         }
     };
-    dinic();
-    fill(all(vis), 0);
-    find(find, 1);
-    cout << ans << "\n";
-    for (auto u : reach) {
-        for (auto [v, w, _] : adj[u]) {
-            if (g[u][v] && !w && reach.find(v) == reach.end()) {
-                cout << u << " " << v << "\n";
-                // ans = sum(u_to_v)
+    find(find, 0);
+    for (int i = 0; i < n; i++) {
+        if (!vis[i]) continue;
+        for (int id : g.adj[i]) {
+            if (id & 1) continue;
+            auto e = g.edges[id];
+            if (!vis[e.to]) {
+                cout << i + 1 << " " << e.to + 1 << "\n";
             }
         }
     }
 }
-signed main() {
+
+int main(){
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
     int t = 1;
     // cin >> t;
-    while(t--){
+    while (t--) {
         solve();
     }
 }

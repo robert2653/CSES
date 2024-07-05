@@ -1,94 +1,118 @@
-// Dinic
 #include <bits/stdc++.h>
+
 using namespace std;
-#define all(x) (x).begin(), (x).end()
-#define int long long
-struct edge {
-    int v, w, rev_id, arg_valid;
-};
-const int inf = 2e9;
-int n, m, ans = 0;
-vector<edge> adj[505];
-vector<int> lev(505), vis(505);
-bool label_level(){ // 標記深度，如果到不了終點 return false
-    fill(all(lev), -1); lev[1] = 0;
-    queue<int> q;   q.push(1);
-    while (!q.empty()) {
-        int u = q.front(); q.pop();
-        for (auto i : adj[u]) {
-            if (i.w > 0 && lev[i.v] == -1) {
-                q.push(i.v);
-                lev[i.v] = lev[u] + 1;
-            }
-        }
+using ll = long long;
+
+template<class T>
+struct Dinic {
+    struct Edge {
+        int to;
+        T flow, cap; // 流量跟容量
+    };
+    int n, m, s, t;
+    T INF_FlOW = numeric_limits<T>::max() / 2;
+    vector<vector<int>> adj; // 此點對應的 edges 編號
+    vector<Edge> edges; // 幫每個 edge 編號
+    vector<int> dis, ptr;
+    Dinic() { init(); }
+    Dinic(int n_) { init(n_); }
+    void init(int n_ = 0) {
+        n = n_;
+        m = 0;
+        adj.resize(n);
+        dis.resize(n);
+        ptr.resize(n);
+        edges.clear();
     }
-    return (lev[n] == -1 ? false : true);
-}
-int dfs(int u, int flow){
-    if (u == n) return flow;
-    for (auto &[v, w, rev_id, arg_valid] : adj[u]){
-        if (lev[v] == lev[u] + 1 && !vis[v] && w > 0) {
-            vis[v] = true;
-            int ret = dfs(v, min(flow, w));
-            if (ret > 0) {
-                w -= ret;
-                adj[v][rev_id].w += ret;
-                if (arg_valid) {    // 走的是 arg 路，Reset
-                    arg_valid = 0;
-                    adj[v][rev_id].arg_valid = 0;
+    void add_edge(int u, int v, T cap) {
+        // 偶數 id 是正向邊
+        edges.push_back({ v, 0, cap });
+        edges.push_back({ u, 0, 0 });
+        adj[u].push_back(m++);
+        adj[v].push_back(m++);
+    }
+    bool bfs() {
+        fill(dis.begin(), dis.end(), -1);
+        dis[s] = 0; queue<int> q;
+        q.push(s);
+        while (!q.empty() && dis[t] == -1) {
+            int u = q.front(); q.pop();
+            for (int id : adj[u]) {
+                Edge &e = edges[id];
+                if (e.flow == e.cap) continue;
+                if (dis[e.to] == -1) {
+                    dis[e.to] = dis[u] + 1;
+                    q.push(e.to);
                 }
-                else adj[v][rev_id].arg_valid = 1;    // 走正常路
-                return ret;
             }
         }
+        return dis[t] != -1;
     }
-    return 0;   // 到不了終點就會 return 0
-}
-bool get_road(int now, vector<int> &ans, vector<bool> &vis) {
-    if (now == 1) return true;
-    for (auto &[v, w, rev_id, arg_valid] : adj[now]) {
-        if (arg_valid && !vis[v]){
-            ans.push_back(v);
-            vis[v] = true;
-            bool flag = get_road(v, ans, vis);
-            if (flag) {
-                arg_valid = false;
-                return true;
+    T dfs(int u, T flow) {
+        if (flow == 0) return 0;
+        if (u == t) return flow;
+        for (int &cur = ptr[u]; cur < (int)adj[u].size(); cur++) {
+            Edge &e = edges[adj[u][cur]];
+            if (dis[u] + 1 != dis[e.to]) continue;
+            if (e.cap - e.flow < 1) continue;
+            T mn = dfs(e.to, min(flow, e.cap - e.flow));
+            if (mn > 0) {
+                e.flow += mn;
+                edges[adj[u][cur] ^ 1].flow -= mn;
+                return mn;
             }
-            ans.pop_back();
         }
+        return 0;   // 到不了終點就會 return 0
     }
-    return false;
-}
-void solve(){
+    T work(int s_, int t_) {
+        s = s_; t = t_;
+        T flow = 0;
+        while (bfs()) {
+            fill(ptr.begin(), ptr.end(), 0);
+            while (T res = dfs(s, INF_FlOW)) {
+                flow += res;
+            }
+        }
+        return flow;
+    }
+};
+
+void solve() {
+    int n, m;
     cin >> n >> m;
+    Dinic<int> g(n);
     for (int i = 0; i < m; i++) {
-        int u, v; cin >> u >> v;
-        adj[u].push_back({v, 1, (int)adj[v].size(), 0});   // 反向流的 ind
-        adj[v].push_back({u, 0, (int)adj[u].size() - 1, 0}); // 已經 push 一個了，要 -1
+        int u, v;
+        cin >> u >> v;
+        u--; v--;
+        g.add_edge(u, v, 1);
     }
-    while (label_level()) {
-        while (true) {
-            fill(all(vis), 0);
-            int tmp = dfs(1, inf);
-            if (tmp == 0) break;
-            ans += tmp;
+    int res = g.work(0, n - 1);
+    vector<int> path;
+    auto dfs = [&](auto &&self, int u) -> void {
+        path.push_back(u + 1);
+        for (int id : g.adj[u]) {
+            if (id & 1) continue;
+            auto &e = g.edges[id];
+            if (e.flow) {
+                e.flow--;
+                self(self, e.to);
+                return;
+            }
         }
-    }
-    cout << ans << "\n";
-    for (int i = 0; i < ans; i++) {
-        vector<int> ans = {n};
-        vector<bool> vis(n+1, false);
-        get_road(n, ans, vis);
-        cout << ans.size() << endl;
-        for(auto it = ans.rbegin(); it != ans.rend(); it++){
-            cout << *it << " ";
-        }
+    };
+    cout << res << "\n";
+    for (int i = 0; i < res; i++) {
+        path.clear();
+        dfs(dfs, 0);
+        cout << path.size() << "\n";
+        for (int v : path) cout << v << " ";
         cout << "\n";
     }
 }
-signed main(){
-    ios::sync_with_stdio(false);
+
+int main() {
+    ios_base::sync_with_stdio(false);
     cin.tie(nullptr);
     int t = 1;
     // cin >> t;
