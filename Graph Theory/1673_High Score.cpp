@@ -1,90 +1,62 @@
 #include <bits/stdc++.h>
+
 using namespace std;
-#define all(x) (x).begin(), (x).end()
-#define endl "\n"
-#define lrep(i, st, n) for(int i = st; i < n; i++)
-#define rep(i, st, n) for(int i = st; i <= n; i++)
-#define sz size()
-#define pb(x) push_back(x)
-#define ppb pop_back()
-#define IO ios_base::sync_with_stdio(0); cin.tie(0);
-#define init(x) memset(x, 0, sizeof(x));
-#define lp 2*now
-#define rp 2*now+1
-#define mid (L+R)/2
-typedef long long int ll;
-typedef pair<int, int> pii;
-typedef vector<int> vi;
-typedef vector<pii> vii;
-typedef pair<ll, ll> pll;
-typedef vector<ll> vl;
-typedef vector<pll> vll;
-typedef struct {
-    int from; int to;
-    ll weight;
-} edge;
-typedef struct {
-    ll sum;
-} Node;
-const ll inf = LLONG_MAX;
-const int intf = INT_MAX;
-const ll minf = -1e18;
-const int maxn = 2505;
+using ll = long long;
+constexpr ll inf = 4e18;
 
-int m, n;
-vector<edge> graph;
-vll adj[maxn];
-vl rev_adj[maxn];
-ll dis[maxn];
-bool vis[maxn] = {0};
-bool nvis[maxn] = {0};
-void dfs(int par, int now){
-    if(vis[now] == 1) return;
-    vis[now] = 1;
-    for(auto [i, w] : adj[now]){
-        if(i != par){
-            dfs(now, i);
-        }
-    }
-}
-void rev_dfs(int par, int now){
-    if(nvis[now] == 1) return;
-    nvis[now] = 1;
-    for(auto i : rev_adj[now]){
-        if(i != par){
-            rev_dfs(now, i);
-        }
-    }
-}
-void solve(){
-    cin >> n >> m;
-    rep(i, 1, m){
+void solve() {
+    int n, m; cin >> n >> m;
+    vector g(n, vector<pair<int, int>>());
+    for (int i = 0; i < m; i++) {
         int u, v, w; cin >> u >> v >> w;
-        graph.push_back({u, v, w});
-        adj[u].push_back({v, w});
-        rev_adj[v].push_back(u);
-
+        u--; v--; g[u].emplace_back(v, -w);
     }
-    rep(i, 1, n) dis[i] = minf;
-    dis[1] = 0;
-    rep(i, 1, n){
-        for(auto [u, v, w] : graph){
-            if(dis[u] + w > dis[v]){
-                dis[v] = dis[u] + w;
+    vector<ll> dis(n, inf);
+    vector<bool> vis(n);
+    queue<int> q;
+    vector<int> cnt(n); // 鬆弛幾次
+    q.push(0); dis[0] = 0; vis[0] = true;
+
+    vector<bool> vis2(n);
+    auto dfs = [&](auto &&self, int u) -> void {
+        if (vis2[u]) return;
+        vis2[u] = true;
+        for (auto [v, w] : g[u]) {
+            self(self, v);
+        }
+    };
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        vis[u] = false;
+        for (auto [v, w] : g[u]) {
+            ll ndis = dis[u] + w;
+            if (dis[v] > ndis) {
+                dis[v] = ndis;
+                cnt[v]++;
+                if (cnt[v] >= n) {
+                    dfs(dfs, v);
+                    continue;
+                }
+                if (!vis[v]) {
+                    q.push(v);
+                    vis[v] = true;
+                }
             }
         }
     }
-    dfs(0, 1);
-    rev_dfs(0, n);
-    for(auto [u, v, w] : graph){
-        if(dis[u] + w > dis[v] && nvis[u] && nvis[v] && vis[u] && vis[v]){
-            cout << -1;
-            return;
-        }
+    if (!vis2[n - 1]) {
+        cout << -dis[n - 1] << "\n";
+    } else {
+        cout << -1 << "\n";
     }
-    cout << dis[n];
 }
-int main(){
-    IO;
-    solve();
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+    int t = 1;
+    // cin >> t;
+    while (t--) {
+        solve();
+    }
 }

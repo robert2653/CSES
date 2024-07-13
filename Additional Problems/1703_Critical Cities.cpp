@@ -62,59 +62,20 @@ struct Dominator_tree {
 
 int main() {
     int n, m; cin >> n >> m;
-    vector<vector<pair<int, ll>>> adj(n);
-    for (int i = 0; i < m; i++) {
-        int u, v;
-        cin >> u >> v;
-        u--; v--;
-        ll w;
-        cin >> w;
-        adj[u].emplace_back(v, w);
-    }
-    vector<pair<int, int>> crit;
-    priority_queue<pair<ll, int>, vector<pair<ll, int>>, greater<pair<ll, int>>> pq;
-    vector<ll> dis(n, 4e18);
-    dis[0] = 0;
-    pq.emplace(0, 0);
-    while (!pq.empty()) {
-        auto [d, u] = pq.top();
-        pq.pop();
-        if (d > dis[u]) continue;
-        for (auto [v, w] : adj[u]) {
-            if (dis[u] + w < dis[v]) {
-                dis[v] = dis[u] + w;
-                pq.emplace(dis[v], v);
-            }
-        }
-    }
-    // if (dis[n - 1] == 4e18) {
-    //     cout << -1 << "\n";
-    //     return 0;
-    // }
-    for (int u = 0; u < n; u++){
-        for (auto [v, w] : adj[u]){
-            if (dis[u] + w == dis[v]) {
-                crit.emplace_back(u, v);
-            }
-        }
-    }
     Dominator_tree dt;
     dt.init(n);
-    for (auto [u, v] : crit) {
-        dt.add_edge(u, v);
+    for (int i = 0; i < m; i++) {
+        int a, b;
+        cin >> a >> b;
+        dt.add_edge(a - 1, b - 1);
     }
     dt.build(0);
-
+    
     vector<int> ans;
-    // for (int i = n - 1; i != 0; i = dt.dom[i]) {
-    //     ans.push_back(i + 1);
-    // }
-    // ans.push_back(1);
-    for (int i = 0; i < n; i++) {
-        if (dt.dom[i] != -1) {
-            ans.push_back(i);
-        }
+    for (int i = n - 1; i != 0; i = dt.dom[i]) {
+        ans.push_back(i + 1);
     }
+    ans.push_back(1);
     sort(ans.begin(), ans.end());
 
     cout << ans.size() << "\n";

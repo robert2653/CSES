@@ -1,84 +1,38 @@
 #include <bits/stdc++.h>
-using namespace std;
-#define all(x) (x).begin(), (x).end()
-#define endl "\n"
-#define lrep(i, st, n) for(int i = st; i < n; i++)
-#define rep(i, st, n) for(int i = st; i <= n; i++)
-#define sz size()
-#define pb(x) push_back(x)
-#define ppb pop_back()
-#define IO ios_base::sync_with_stdio(0); cin.tie(0);
-#define init(x, k) memset(x, k, sizeof(x));
-#define vec_init(x, k) x.assign(x.size(), k);
-#define lc 2*now
-#define rc 2*now+1
-#define mid (L+R)/2
-typedef long long int ll;
-typedef pair<int, int> pii;
-typedef vector<int> vi;
-typedef vector<pii> vii;
-typedef pair<ll, ll> pll;
-typedef vector<ll> vl;
-typedef vector<pll> vll;
-typedef struct {
-    int from; int to;
-    ll weight;
-} edge;
-typedef struct {
-    ll sum;
-} Node;
-const ll llinf = 1e18;
-const int inf = 1e9;
-const int MOD = 1e9+7;
-const int maxn = 1e6+5;
-// ll dp[maxn];
-ll dp[maxn];
-char laby[maxn];
-vi graph[maxn];
-int in[maxn] = {0};
-void solve(){
-    // -1 +1 -n +n
-    init(dp, 0);
-    int n; cin >> n;
-    int size = n * n;
-    lrep(i, 0, n){
-        lrep(j, 0, n){
-            cin >> laby[i * n + j];
-            if(j + 1 < n){
-                graph[i * n + j].push_back(i * n + j + 1);
-                in[i * n + j + 1]++;
-            }
-            if(i * n + j + n < size){
-                graph[i * n + j].push_back(i * n + j + n);
-                in[i * n + j + n]++;
-            }
-        }
-    }
-    if(laby[0] == '*'){
-        cout << 0;
-        return;
-    }
-    queue<int> q;
-    q.push(0);
-    dp[0] = 1;
-    while(!q.empty()){
-        int now = q.front(); q.pop();
-        for(auto &nxt : graph[now]){
-            in[nxt]--;
-            if(laby[nxt] != '*'){
-                (dp[nxt] += dp[now]) %= MOD;
-            }
-            if(in[nxt] == 0) q.push(nxt);
-        }
-    }
-    cout << dp[size - 1];
 
+using namespace std;
+using ll = long long;
+
+constexpr int Mod = 1e9 + 7;
+
+void solve() {
+    int n;
+    cin >> n;
+    vector<string> g(n);
+    for (int i = 0; i < n; i++) {
+        cin >> g[i];
+    }
+
+    vector dp(n + 2, vector<int>(n + 2));
+    if (g[0][0] == '.') dp[1][1] = 1;
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            if (g[i][j] == '.') {
+                dp[i + 1][j + 1] = (dp[i + 1][j + 1] + dp[i][j + 1]) % Mod;
+                dp[i + 1][j + 1] = (dp[i + 1][j + 1] + dp[i + 1][j]) % Mod;
+            }
+        }
+    }
+
+    cout << dp[n][n] << "\n";
 }
-int main(){
-    IO;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
     int t = 1;
     // cin >> t;
-    while(t--){
+    while (t--) {
         solve();
     }
 }

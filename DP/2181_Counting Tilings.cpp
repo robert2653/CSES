@@ -1,53 +1,49 @@
 #include <bits/stdc++.h>
-using namespace std;
-#define all(x) (x).begin(), (x).end()
-#define endl "\n"
-#define lrep(i, st, n) for(int i = st; i < n; i++)
-#define rep(i, st, n) for(int i = st; i <= n; i++)
-#define sz size()
-#define pb(x) push_back(x)
-#define ppb pop_back()
-#define IO ios_base::sync_with_stdio(0); cin.tie(0);
-#define init(x, k) memset(x, k, sizeof(x));
-#define vec_init(x, k) x.assign(x.size(), k);
-#define lc 2*now
-#define rc 2*now+1
-#define mid (L+R)/2
-typedef long long int ll;
-typedef pair<int, int> pii;
-typedef vector<int> vi;
-typedef vector<pii> vii;
-typedef pair<ll, ll> pll;
-typedef vector<ll> vl;
-typedef vector<pll> vll;
-typedef struct {
-    int from; int to;
-    ll weight;
-} edge;
-typedef struct {
-    ll sum;
-} Node;
-const ll llinf = 1e18;
-const int inf = 1e9;
-const int MOD = 1e9+7;
-const int maxn = 2e5+5;
-int dp[100005][105];
-void solve(){
-    int n, m; cin >> n >> m;
-    ll dp[1001][1 << 10]; init(dp, 0);
-    // dp with bitmasking
-    for(int i = 1; i <= m; i++){
-        for(int j = 0; j < 1 << n; j++){
 
+using namespace std;
+using ll = long long;
+
+constexpr int Mod = 1e9 + 7;
+
+// https://hackmd.io/@tmting39/H1yvegOYn#Counting-Tilings
+
+int findBit(int x) {
+    return (1 << x);
+}
+void solve() {
+    int n, m;
+    cin >> n >> m;
+    vector dp(m, vector<vector<int>>(n, vector<int>(findBit(n))));
+    dp[0][0][findBit(n) - 2] = 1;
+    // i - 2 行填滿，i - 1 行填 j 個，前 n 個排列方式由 bit 表示
+    for (int i = 0; i < m; i++) {
+        for (int j = 0; j < n; j++) {
+            for (int mask = 0; mask < findBit(n); mask++) {
+                if (j == 0) {
+                    if (i > 0) dp[i][0][mask] = dp[i - 1][n - 1][mask ^ 1];
+                    continue;
+                }
+                if (mask & findBit(j)) { // (i, j) 有放
+                    (dp[i][j][mask] += dp[i][j - 1][mask ^ findBit(j)]) %= Mod;
+                    // 橫放
+                    if ((mask & findBit(j - 1))) { // 直放
+                        (dp[i][j][mask] += dp[i][j - 1][mask ^ findBit(j - 1)]) %= Mod;
+                    }
+                } else {
+                    dp[i][j][mask] = dp[i][j - 1][mask ^ findBit(j)];
+                }
+            }
         }
     }
-
+    cout << dp[m - 1][n - 1][findBit(n) - 1] << "\n";
 }
-int main(){
-    IO;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
     int t = 1;
     // cin >> t;
-    while(t--){
+    while (t--) {
         solve();
     }
 }

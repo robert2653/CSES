@@ -1,63 +1,46 @@
 #include <bits/stdc++.h>
+
 using namespace std;
-#define all(x) (x).begin(), (x).end()
-#define endl "\n"
-#define rep(i, st, n) for(int i = st; i < n; i++)
-#define sz size()
-#define pb push_back()
-#define ppb pop_back()
-#define pp pop()
-#define tp top()
-#define ph push()
-#define IO ios_base::sync_with_stdio(0); cin.tie();
-typedef long long int ll;
-typedef pair<int, int> pii;
-typedef vector<int> vi;
-typedef vector<pii> vii;
-typedef struct{
-    int from; int to;
-    ll weight;
-} edge;
-const ll inf = 1LL << 62;
-// NegCyc_Finding_Road
-vector<edge> graph;
-int main(){
-    int src = 0;
-    int n, m;    cin >> n >> m;
-    vector<int> par(n+1), dis(n+1);
-    rep(i, 0, m){
-        int a, b, w; cin >> a >> b >> w;
-        graph.push_back({a, b, w});
+using ll = long long;
+constexpr ll inf = 4e18;
+
+void solve() {
+    int n, m; cin >> n >> m;
+    vector<array<int, 3>> e;
+    for (int i = 0; i < m; i++) {
+        int u, v, w; cin >> u >> v >> w;
+        u--, v--; e.push_back({u, v, w});
     }
-    rep(i, 0, n+1) {
-        dis[i] = 1e9 + 5;
-    }
-    dis[1] = 0;
-    rep(i, 0, n + 1){
-        src = 0;
-        for(auto [a, b, w] : graph){
-            if(dis[b] > dis[a] + w){
-                dis[b] = dis[a] + w;
-                par[b] = a;
-                src = b;
+    vector<ll> dis(n, inf), par(n);
+    int t = -1; dis[0] = 0;
+    for (int i = 1; i <= n; i++) {
+        for (auto [u, v, w] : e) {
+            if (dis[v] > dis[u] + w) {
+                dis[v] = dis[u] + w;
+                par[v] = u;
+                if (i == n) t = v;
             }
         }
     }
-    if(src){
-        vector<int> ans;
-        cout << "YES" << endl;
-        rep(i, 0, n + 1) src = par[src];
-        ans.push_back(src);
-        for(int i = par[src]; i != src; i = par[i]){
-            ans.push_back(i);
-        }
-        ans.push_back(src);
-        reverse(all(ans));
-        for (auto i : ans){
-            cout << i << " ";
-        }
-    }
-    else {
-        cout << "NO" << endl;
+    if (t == -1) { cout << "NO\n"; return; }
+    for (int i = 1; i < n; i++) t = par[t]; 
+    vector<int> ans {t};
+    int i = t;
+    do {
+        i = par[i];
+        ans.push_back(i);
+    } while (i != t);
+    reverse(ans.begin(), ans.end());
+    cout << "YES\n";
+    for (auto x : ans) cout << x + 1 << " ";
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+    int t = 1;
+    // cin >> t;
+    while (t--) {
+        solve();
     }
 }

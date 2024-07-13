@@ -1,38 +1,40 @@
 #include <bits/stdc++.h>
+
 using namespace std;
-typedef long long int ll;
-typedef pair<int, int> pii;
-int dp[1005][100005];
-vector<int> Page(1005, 0);
-vector<int> Price(1005, 0);
-int main(){
-    ios_base::sync_with_stdio();
-    cin.tie();
-    int n, bud;
-    cin >> n >> bud;
-    for(int i = 1; i <= n; i++){
-        int tmp; cin >> tmp;
-        Price[i] = tmp;
+using ll = long long;
+
+void solve() {
+    int n, x;
+    cin >> n >> x;
+    vector<int> p(n), w(n);
+
+    for (int i = 0; i < n; i++) {
+        cin >> p[i];
     }
-    for(int i = 1; i <= n; i++){
-        int tmp; cin >> tmp;
-        Page[i] = tmp;
+    for (int i = 0; i < n; i++) {
+        cin >> w[i];
     }
-    memset(dp, 0, sizeof(dp));
-    for(int i = 1; i <= n; i++){
-        for(int j = 1; j <= bud; j++){
-            if(j >= Price[i]){
-                dp[i][j] = max(dp[i-1][j], dp[i-1][j-Price[i]]+Page[i]);
-            }
-            else {
-                dp[i][j] = dp[i-1][j];
+
+    vector<int> dp(x + 1);
+    for (int i = 0; i < n; i++) {
+        for (int j = x; j >= 0; j--) {
+            if (j - p[i] >= 0) {
+                dp[j] = max(dp[j], dp[j - p[i]] + w[i]);
             }
         }
+        // for (auto j : dp) cerr << j << " ";
+        // cerr << "\n";
     }
-    cout << dp[n][bud] << endl;
-    // for(int i = 0; i <= n; i++){
-    //     for(int j = 0; j <= bud; j++){
-    //         cout << dp[i][j] << " ";
-    //     }
-    // }
+
+    cout << dp[x] << "\n";
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+    int t = 1;
+    // cin >> t;
+    while (t--) {
+        solve();
+    }
 }

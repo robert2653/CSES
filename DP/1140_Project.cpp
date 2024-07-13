@@ -1,69 +1,51 @@
 #include <bits/stdc++.h>
-using namespace std;
 #define all(x) (x).begin(), (x).end()
-#define endl "\n"
-#define lrep(i, st, n) for(int i = st; i < n; i++)
-#define rep(i, st, n) for(int i = st; i <= n; i++)
-#define sz size()
-#define pb(x) push_back(x)
-#define ppb pop_back()
-#define IO ios_base::sync_with_stdio(0); cin.tie(0);
-#define init(x, k) memset(x, k, sizeof(x));
-#define vec_init(x, k) x.assign(x.size(), k);
-#define lc 2*now
-#define rc 2*now+1
-#define mid (L+R)/2
-typedef long long int ll;
-typedef pair<int, int> pii;
-typedef vector<int> vi;
-typedef vector<pii> vii;
-typedef pair<ll, ll> pll;
-typedef vector<ll> vl;
-typedef vector<pll> vll;
-typedef struct {
-    int from; int to;
-    ll weight;
-} edge;
-typedef struct {
-    ll sum;
-} Node;
-const ll llinf = 1e18;
-const int inf = 1e9;
-const int MOD = 1e9+7;
-const int maxn = 2e5+5;
-int n; 
-ll from[maxn], to[maxn], gain[maxn];
-ll dp[400005];
-vll rev_proj[400005];
-void compress(map<int, int> mp){
-    int now = 0;
-    for(auto &i : mp){
-        mp[i.first] = ++now;
+
+using namespace std;
+using ll = long long;
+
+void solve() {
+    struct E {
+        int from, to, w, id;
+        bool operator<(const E &rhs) {
+            return to == rhs.to ? w > rhs.w : to < rhs.to;
+    }};
+    int n; cin >> n;
+    vector<E> a(n + 1);
+    for (int i = 1; i <= n; i++) {
+        int u, v, w; cin >> u >> v >> w;
+        a[i] = {u, v, w, i};
     }
-    rep(i, 1, n){
-        rev_proj[mp[to[i]]].push_back({mp[from[i]], gain[i]});
-    }
-}
-void solve(){cin >> n;
-    map<int, int> comp;
-    rep(i, 1, n){
-        cin >> from[i] >> to[i] >> gain[i];
-        comp[from[i]] = 1, comp[to[i]] = 1;
-    }
-    compress(comp);
-    rep(i, 1, 400004){
-        dp[i] = dp[i - 1];
-        for(auto [from, gain] : rev_proj[i]){
-            dp[i] = max(dp[i], dp[from - 1] + gain);
+    vector<array<ll, 2>> dp(n + 1); // w, time
+    vector<array<int, 2>> rec(n + 1); // 有沒選，上個是誰
+    sort(a.begin(), a.end());
+    for (int i = 1; i <= n; i++) {
+        auto it = --lower_bound(all(a), E({0, a[i].from}),
+        [](E x, E y){ return x.to < y.to; });
+        int id = it - a.begin(); dp[i] = dp[i - 1];
+        ll nw = dp[id][0] + a[i].w;
+        ll nt = dp[id][1] + a[i].to - a[i].from;
+        if (dp[i][0] < nw || dp[i][0] == nw && dp[i][1] > nt) {
+            dp[i] = {nw, nt}; rec[i] = {1, id};
         }
     }
-    cout << dp[400004];
+    vector<int> ans;
+    for (int i = n; i != 0;) {
+        if (rec[i][0]) {
+            ans.push_back(a[i].id);
+            i = rec[i][1];
+        } else i--;
+    }
+    cout << ans.size() << " " << dp[n][0] << " " << dp[n][1] << "\n";
+    sort(all(ans)); for (auto x : ans) cout << x << " ";
 }
-int main(){
-    IO;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
     int t = 1;
     // cin >> t;
-    while(t--){
+    while (t--) {
         solve();
     }
 }
