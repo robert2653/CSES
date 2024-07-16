@@ -1,110 +1,85 @@
 #include <bits/stdc++.h>
-using namespace std;
-#define all(x) (x).begin(), (x).end()
-#define endl "\n"
-#define lrep(i, st, n) for(int i = st; i < n; i++)
-#define rep(i, st, n) for(int i = st; i <= n; i++)
-#define sz size()
-#define pb(x) push_back(x)
-#define ppb pop_back()
-#define IO ios_base::sync_with_stdio(0); cin.tie(0);
-#define init(x, k) memset(x, k, sizeof(x));
-#define vec_init(x, k) x.assign(x.size(), k);
-#define lc 2*now
-#define rc 2*now+1
-#define mid (L+R)/2
-typedef long long int ll;
-typedef pair<int, int> pii;
-typedef vector<int> vi;
-typedef vector<pii> vii;
-typedef pair<ll, ll> pll;
-typedef vector<ll> vl;
-typedef vector<pll> vll;
-typedef struct {
-    int from; int to;
-    ll weight;
-} edge;
-typedef struct {
-    ll sum;
-} Node;
-const ll llinf = 1e18;
-const int inf = 1e9;
-const int MOD = 1e9+7;
-const int maxn = 2e5+5;
 
-int nextnode[maxn];
-int n;
-bool vis[maxn];
-int ans[maxn];
-int no[maxn];
-vector<vector<int>> cycles;
-void find_cycle(int now){
-    unordered_set<int> appear;
-    vector<int> vec;
-    bool found_cycle = 1;
-    while(appear.find(now) == appear.end()){
-        appear.insert(now);
-        vec.push_back(now);
-        if(vis[now]){   // 沒找到環
-            found_cycle = false;
-            break;
+using namespace std;
+using ll = long long;
+
+constexpr int N = 2e5 + 5;
+// int cht[N][31]; // 倍增表, 放外面不然 TLE
+int ans[N];
+struct FuntionalGraph {
+    int n, cnt;
+    vector<int> g, bel, id, len, in, top;
+    FuntionalGraph() : n(0) {}
+    FuntionalGraph(vector<int> g_) { init(g_); }
+    void init(vector<int> g_) {
+        n = g_.size(); cnt = 0;
+        g = g_; bel.assign(n, -1);
+        id.resize(n); len.clear();
+        in.assign(n, 0); top.assign(n, -1);
+        build();
+    }
+    void build() {
+        for (int i = 0; i < n; i++) {
+            // cht[i][0] = g[i];
+            in[g[i]]++;
         }
-        now = nextnode[now];
+        // for (int i = 1; i <= 30; i++)
+        //     for (int u = 0; u < n; u++)
+        //         cht[u][i] = cht[cht[u][i - 1]][i - 1];
+        for (int i = 0; i < n; i++)
+            if (in[i] == 0) label(i);
+        for (int i = 0; i < n; i++)
+            if (top[i] == -1) label(i);
     }
-    for(auto &i : vec) vis[i] = true;
-    if(!found_cycle){
-        return;
-    }
-    int start = find(all(vec), now) - vec.begin();  // cycle的起點
-    int end = vec.size();
-    vector<int> cycle;
-    lrep(i, start, end){
-        cycle.push_back(vec[i]);
-    }
-    cycles.push_back(cycle);
-}
-void find_outside(int now, unordered_set<int> &done){
-    if(done.find(now) != done.end()){   // 碰到環了
-        return;
-    }
-    find_outside(nextnode[now], done);
-    done.insert(now);
-    // no[now] = no[nextnode[now]] - 1;
-    ans[now] = ans[nextnode[now]] + 1;
-}
-void solve(){
-    // freopen("test_input.txt", "r", stdin);
-    cin >> n;
-    rep(i, 1, n){
-        cin >> nextnode[i];
-    }
-    rep(i, 1, n){
-        if(!vis[i])
-            find_cycle(i);
-    }
-    unordered_set<int> done;
-    int cyc_idx = 0;
-    for(auto cycle : cycles){
-        int cyc_no = 0;
-        for(auto &j : cycle){
-            done.insert(j);
-            no[j] = cyc_no++;
-            ans[j] = cycle.size();
+    void label(int u) {
+        vector<int> p; int cur = u;
+        while (top[cur] == -1) {
+            top[cur] = u;
+            p.push_back(cur);
+            cur = g[cur];
         }
-        cyc_idx++;
+        auto s = std::find(p.begin(), p.end(), cur);
+        vector<int> cyc(s, p.end());
+        p.erase(s, p.end()); p.push_back(cur);
+        for (int i = 0; i < (int)cyc.size(); i++) {
+            bel[cyc[i]] = cnt;
+            id[cyc[i]] = i;
+            ans[cyc[i]] = cyc.size();
+        }
+        cnt++; len.push_back(cyc.size());
+        for (int i = p.size() - 1; i > 0; i--) {
+            id[p[i - 1]] = id[p[i]] - 1;
+            ans[p[i - 1]] = ans[p[i]] + 1;
+        }
     }
-    rep(i, 1, n){
-        find_outside(i, done);
+    // int jump(int u, int k) {
+    //     for (int b = 0; k > 0; b++){
+    //         if (k & 1) u = cht[u][b];
+    //         k >>= 1;
+    //     }
+    //     return u;
+    // }
+};
+
+void solve() {
+    int n; cin >> n;
+    vector<int> init(n);
+    for (int i = 0; i < n; i++) {
+        cin >> init[i];
+        init[i]--;
     }
-    rep(i, 1, n){
-        cout << ans[i] << endl;
+    FuntionalGraph g(init);
+    for (int i = 0; i < n; i++) {
+        cout << ans[i] << " \n"[i == n - 1];
     }
 }
-int main(){
-    IO;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
     int t = 1;
     // cin >> t;
-    while(t--){
+    while (t--) {
         solve();
     }
 }
