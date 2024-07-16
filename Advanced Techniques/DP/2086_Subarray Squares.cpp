@@ -1,17 +1,15 @@
 #include <bits/stdc++.h>
-
 using namespace std;
 using ll = long long;
 
 struct Line {
-    ll m, b;
-    Line(ll m = 0, ll b = 0) : m(m), b(b) {}
+    ll m = 0, b = 0;
     ll eval(ll x) {
         return m * x + b;
     }
 };
-struct CHT {
-    int n, lptr, rptr; deque<Line> hull;
+struct CHT { // 用在查詢單調斜率也單調
+    int n, lptr, rptr; vector<Line> hull;
     CHT(int n_ = 0, Line init_ = Line()) {
         init(n_, init_);
     }
@@ -42,31 +40,42 @@ struct CHT {
         return hull[lptr].eval(x);
     }
 };
-void solve() {
-    // dp[i] = min(fj * s[i] + dp[j])
-    // 維護上凸包
-    int n; ll x;
-    cin >> n >> x;
-    vector<ll> s(n), f(n);
-    for (int i = 0; i < n; i++) cin >> s[i];
-    for (int i = 0; i < n; i++) cin >> f[i];
-
-    CHT cht(n + 1, Line(x, 0));
-    ll ans = 0;
-    for (int i = 0; i < n; i++) {
-        ll dp = cht.query(s[i]);
-        if (i == n - 1) ans = dp;
-        cht.insert(Line(f[i], dp));
-    }
-    cout << ans << "\n";
-}
 
 int main() {
     ios_base::sync_with_stdio(false);
     cin.tie(nullptr);
-    int t = 1;
-    // cin >> t;
-    while (t--) {
-        solve();
+    
+    int n, K;
+    cin >> n >> K;
+    
+    vector<ll> pre(n + 1, 0);
+    for (int i = 1; i <= n; i++) {
+        cin >> pre[i];
+        pre[i] += pre[i - 1];
     }
+    
+    vector<ll> dp(n + 1);
+    
+    for (int i = 1; i <= n; i++) {
+        dp[i] = pre[i] * pre[i];
+    }
+    
+    CHT cht(n + 1);
+    // dp[i] - s[i]^2 = (-2s[j]) * s[i] + s[j]^2
+    // 斜率遞減查詢遞增
+    for (int k = 1; k <= K - 1; k++) { // 切 k 次
+        cht.reset();
+        for (int i = 1; i <= k; i++) {
+            cht.insert({-2LL * pre[i], dp[i] + pre[i] * pre[i]});
+        }
+        for (int i = k + 1; i <= n; i++) {
+            auto val = cht.query(pre[i]);
+            cht.insert({-2LL * pre[i], dp[i] + pre[i] * pre[i]});
+            dp[i] = pre[i] * pre[i] + val;
+        }
+    }
+    
+    cout << dp[n] << "\n";
+    
+    return 0;
 }
