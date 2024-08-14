@@ -3,7 +3,7 @@
 using namespace std;
 using ll = long long;
 
-struct SAM { // 0 is initial state, 1-based
+struct SAM { // 1 is initial state, 1-based
     static constexpr int ALPHABET_SIZE = 26;
     struct Node {
         int len;
@@ -55,7 +55,6 @@ struct SAM { // 0 is initial state, 1-based
 void solve() {
     string s; ll k;
     cin >> s >> k;
-    k -= 1;
 
     int n = s.length();
     SAM sam;
@@ -67,55 +66,55 @@ void solve() {
 
     int sz = sam.t.size();
     vector<int> cnt(sz);
-    vector<ll> dp(sz);
+    for (int i = 1; i <= n; i++) cnt[last[i]]++;
+    vector<vector<int>> order(sz);
+    for (int i = 1; i < sz; i++) {
+        order[sam.t[i].len].push_back(i);
+    }
+    for (int i = sz - 1; i >= 0; i--) {
+        for (int u : order[i]) {
+            if (sam.t[u].link != -1) {
+                cnt[sam.t[u].link] += cnt[u];
+            }
+        }
+    }
 
-    auto get_cnt = [&]() {
-        vector<vector<int>> order(sz);
-        for (int i = 1; i < sz; i++)
-            order[sam.t[i].len].push_back(i);
-        for (int i = sz - 1; i >= 0; i--)
-            for (int u : order[i])
-                if (sam.t[u].link != -1)
-                    cnt[sam.t[u].link] += cnt[u];
-    };
-
-    auto get_dp = [&](auto&& self, int u) -> void {
+    vector<ll> dp(sz, -1);
+    auto dfs = [&](auto self, int u) -> void {
         dp[u] = cnt[u];
         for (int c = 0; c < SAM::ALPHABET_SIZE; c++) {
             int v = sam.t[u].next[c];
             if (v) {
-                if (dp[v] == 0) self(self, v);
+                if (dp[v] == -1) self(self, v);
                 dp[u] += dp[v];
             }
         }
     };
+    dfs(dfs, 1); // a, ab, abc, b, bc, c
 
-    auto dfs = [&](auto&& self, int u, ll k, string& ans) -> void {
-        if (k < 0) return;
+    string ans;
+    int p = 1;
+    while (k > 0) {
         for (int c = 0; c < SAM::ALPHABET_SIZE; c++) {
-            int v = sam.t[u].next[c];
+            int v = sam.t[p].next[c];
             if (v) {
-                if (dp[v] <= k) {
+                if (k > dp[v]) {
                     k -= dp[v];
                 } else {
                     ans.push_back('a' + c);
-                    self(self, v, k - cnt[v], ans);
-                    return;
+                    k -= cnt[v];
+                    p = v;
+                    break;
                 }
             }
         }
-    };
+    }
     
-    for (int i = 1; i <= n; i++) cnt[last[i]]++;
-    get_cnt();
-    get_dp(get_dp, 1);
-
-    string ans;
-    dfs(dfs, 1, k, ans);
     cout << ans << "\n";
 }
 
 int main() {
+    // freopen("1.in", "r", stdin);
     ios_base::sync_with_stdio(false);
     cin.tie(nullptr);
     int t = 1;
