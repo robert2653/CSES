@@ -2,12 +2,10 @@
 using namespace std;
 using ll = long long;
 
-constexpr int N = 3e3 + 5;
-constexpr ll inf = 4e18;
-
+constexpr int N = 3E3 + 5;
+constexpr ll inf = 4E18;
+ll dp[N][N]; // 1-based
 ll pref[N];
-ll dp[N][N];
-
 ll get_cost(int l, int r) { // 左開右閉查詢
     return (pref[r] - pref[l]) * (pref[r] - pref[l]);
 }

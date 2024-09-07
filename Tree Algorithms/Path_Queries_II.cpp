@@ -2,14 +2,12 @@
 #pragma GCC optimize("03")
 using namespace std;
  
-// CSES Path Queries II
- 
 struct HLD {
     int n, cur;
     vector<int> siz, top, dep, parent, in, out, seq;
     vector<vector<int>> adj;
     HLD(int n_ = 0) { init(n_); }
-    void init(int n_ = 0) {
+    void init(int n_) {
         n = n_; cur = 0;
         siz.resize(n); top.resize(n); dep.resize(n);
         parent.resize(n); in.resize(n); out.resize(n);
@@ -19,19 +17,19 @@ struct HLD {
         adj[u].push_back(v);
         adj[v].push_back(u);
     }
-    void work(int root = 0) {
-        top[root] = root;
-        dep[root] = 0;
-        parent[root] = -1;
-        dfs1(root); dfs2(root);
+    void work(int rt = 0) {
+        top[rt] = rt;
+        dep[rt] = 0;
+        parent[rt] = -1;
+        dfs1(rt); dfs2(rt);
     }
     void dfs1(int u) {
-        if (parent[u] != -1)
+        if (parent[u] != -1) {
             adj[u].erase(find(adj[u].begin(), adj[u].end(), parent[u]));
+        }
         siz[u] = 1;
         for (auto &v : adj[u]) {
-            parent[v] = u;
-            dep[v] = dep[u] + 1;
+            parent[v] = u, dep[v] = dep[u] + 1;
             dfs1(v);
             siz[u] += siz[v];
             if (siz[v] > siz[adj[u][0]]) {
@@ -64,50 +62,47 @@ struct HLD {
     int jump(int u, int k) {
         if (dep[u] < k) return -1;
         int d = dep[u] - k;
-        while (dep[top[u]] > d)
+        while (dep[top[u]] > d) {
             u = parent[top[u]];
+        }
         return seq[in[u] - dep[u] + d];
     }
     bool isAncester(int u, int v) {
-        // 判斷 u 是否是 v 的祖先
         return in[u] <= in[v] && in[v] < out[u];
     }
-    int rootedParent(int u, int v) {
-        // 根據新根節點 u 計算 v 的父節點
-        swap(u, v); if (u == v) return u;
-        if (!isAncester(u, v)) return parent[u];
-        auto it = upper_bound(adj[u].begin(), adj[u].end(), v, [&](int x, int y) {
+    int rootedParent(int rt, int v) {
+        swap(rt, v);
+        if (rt == v) return rt;
+        if (!isAncester(rt, v)) return parent[rt];
+        auto it = upper_bound(adj[rt].begin(), adj[rt].end(), v, [&](int x, int y) {
             return in[x] < in[y];
         }) - 1;
         return *it;
     }
-    int rootedSize(int u, int v) {
-        // 根據新根節點 u 計算子樹 v 的大小
-        if (u == v) return n;
-        if (!isAncester(v, u)) return siz[v];
-        return n - siz[rootedParent(u, v)];
+    int rootedSize(int rt, int v) {
+        if (rt == v) return n;
+        if (!isAncester(v, rt)) return siz[v];
+        return n - siz[rootedParent(rt, v)];
     }
-    int rootedLca(int a, int b, int c) {
-        // 根據新的根節點計算三個節點 a、b 和 c 的最近公共祖先
-        return lca(a, b) ^ lca(b, c) ^ lca(c, a);
+    int rootedLca(int rt, int a, int b) {
+        return lca(rt, a) ^ lca(a, b) ^ lca(b, rt);
     }
 };
  
-template <class Info>
+template<class Info>
 struct Seg {    // 左閉右開寫法
-    int n; vector<Info> info;
+    int n;
+    vector<Info> info;
     Seg() : n(0) {}
     Seg(int n_, Info v_ = Info()) {
         init(n_, v_);
     }
-    template <class T>
-    Seg(vector<T> init_) {
-        init(init_);
-    }
+    template<class T>
+    Seg(vector<T> init_) { init(init_); }
     void init(int n_, Info v_ = Info()) {
         init(vector(n_, v_));
     }
-    template <class T>
+    template<class T>
     void init(vector<T> init_) {
         n = init_.size();
         info.assign(4 << __lg(n), Info());
@@ -123,7 +118,9 @@ struct Seg {    // 左閉右開寫法
         };
         build(1, 0, n);
     }
-    void pull(int p) { info[p] = info[p * 2] + info[p * 2 + 1]; }
+    void pull(int p) {
+        info[p] = info[p * 2] + info[p * 2 + 1];
+    }
     void modify(int p, int l, int r, int x, const Info &v) {
         if (r - l == 1) {
             info[p] = v;
@@ -146,18 +143,14 @@ struct Seg {    // 左閉右開寫法
         int m = (l + r) / 2;
 	    return query(p * 2, l, m, ql, qr) + query(p * 2 + 1, m, r, ql, qr);
     }
-    Info query(int ql, int qr) { return query(1, 0, n, ql, qr); }
+    Info query(int ql, int qr) {
+        return query(1, 0, n, ql, qr);
+    }
     template<class F>   // 尋找區間內，第一個符合條件的
     int findFirst(int p, int l, int r, int x, int y, F &&pred) {
-        if (l >= y || r <= x) {
-            return -1;
-        }
-        if (l >= x && r <= y && !pred(info[p])) {
-            return -1;
-        }
-        if (r - l == 1) {
-            return l;
-        }
+        if (l >= y || r <= x) return -1;
+        if (l >= x && r <= y && !pred(info[p])) return -1;
+        if (r - l == 1) return l;
         int m = (l + r) / 2;
         int res = findFirst(2 * p, l, m, x, y, pred);
         if (res == -1) {
@@ -170,17 +163,19 @@ struct Seg {    // 左閉右開寫法
         return findFirst(1, 0, n, l, r, pred);
     }
 };
-// ---define structure and info plus---
 struct Info {
-    int max;
-    Info(int max_ = 0) { max = max_; }
+    int max = 0;
 };
 Info operator+(const Info &a, const Info &b) {
     return { max(a.max, b.max) };
 }
 
-void solve() {
-    int n, q; cin >> n >> q;
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, q;
+    cin >> n >> q;
     HLD hld(n);
     vector<int> a(n);
     for (int i = 0; i < n; i++) {
@@ -190,8 +185,6 @@ void solve() {
     for (int i = 0; i < n - 1; i++) {
         cin >> in[i].first >> in[i].second;
     }
-    mt19937_64 rng(chrono::steady_clock::now().time_since_epoch().count());
-    shuffle(in.begin(), in.end(), rng);
     for (int i = 0; i < n - 1; i++) {
         auto [u, v] = in[i];
         u--; v--;
@@ -208,7 +201,7 @@ void solve() {
         if (op == 1) {
             int u, x; cin >> u >> x;
             u--;
-            seg.modify(hld.in[u], Info(x));
+            seg.modify(hld.in[u], {x});
         }
         else {
             int a, b; cin >> a >> b;
@@ -229,14 +222,5 @@ void solve() {
         }
     }
     cout << "\n";
-}
-
-int main() {
-    ios_base::sync_with_stdio(false);
-    cin.tie(nullptr);
-    int t = 1;
-    // cin >> t;
-    while (t--) {
-        solve();
-    }
+    return 0;
 }

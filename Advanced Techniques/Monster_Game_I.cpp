@@ -3,6 +3,8 @@
 using namespace std;
 using ll = long long;
 
+// 應用: dp(i) = h(i) + min/max(A(j)X(i) + B(j)), for j≤r(i)
+// A(j), B(j) 可能包含 dp(j)，分別就是 m 跟 b
 struct Line {
     ll m, b;
     Line(ll m = 0, ll b = 0) : m(m), b(b) {}
@@ -10,8 +12,9 @@ struct Line {
         return m * x + b;
     }
 };
-struct CHT {
-    int n, lptr, rptr; deque<Line> hull;
+struct CHT { // 用在查詢單調斜率也單調
+    int n, lptr, rptr;
+    vector<Line> hull;
     CHT(int n_ = 0, Line init_ = Line()) {
         init(n_, init_);
     }
@@ -32,13 +35,15 @@ struct CHT {
         return (l3.b - l2.b) * (l1.m - l3.m) <= (l3.b - l1.b) * (l2.m - l3.m);
     }
     void insert(Line L) {
-        while (rptr - lptr > 0 && pop_back(hull[rptr - 1], hull[rptr], L))
+        while (rptr - lptr > 0 && pop_back(hull[rptr - 1], hull[rptr], L)) {
             rptr--;
+        }
         hull[++rptr] = L;
     }
     ll query(ll x) {
-        while (rptr - lptr > 0 && pop_front(hull[lptr], hull[lptr + 1], x))
+        while (rptr - lptr > 0 && pop_front(hull[lptr], hull[lptr + 1], x)) {
             lptr++;
+        }
         return hull[lptr].eval(x);
     }
 };
