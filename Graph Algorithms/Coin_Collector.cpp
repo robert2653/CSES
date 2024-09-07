@@ -1,124 +1,129 @@
-// 把每個scc重新建一個dag，然後拓樸dp
 #include <bits/stdc++.h>
-using namespace std;
-#define all(x) (x).begin(), (x).end()
-#define endl "\n"
-#define lrep(i, st, n) for(int i = st; i < n; i++)
-#define rep(i, st, n) for(int i = st; i <= n; i++)
-#define sz size()
-#define pb(x) push_back(x)
-#define ppb pop_back()
-#define IO ios_base::sync_with_stdio(0); cin.tie(0);
-#define init(x, k) lrep(i, 0, sizeof(x)/sizeof(x[0])){x[i] = k;}
-#define vec_init(x, k) lrep(i, 0, x.sz){x[i] = k;}
-#define lc 2*now
-#define rc 2*now+1
-#define mid (L+R)/2
-typedef long long int ll;
-typedef pair<int, int> pii;
-typedef vector<int> vi;
-typedef vector<pii> vii;
-typedef pair<ll, ll> pll;
-typedef vector<ll> vl;
-typedef vector<pll> vll;
-typedef struct {
-    int from; int to;
-    ll weight;
-} edge;
-typedef struct {
-    ll sum;
-} Node;
-const ll llinf = LLONG_MAX;
-const int inf = INT_MAX;
-const int maxn = 1e5+5;
 
-vector<int> adj[maxn], rev_adj[maxn];
-int order[maxn];
-int k = 0;
-vector<int> DAG[maxn];
-int coin[maxn];
-int n, m;
-bool vis[maxn];
-vector<int> v;
-int in[maxn];
-void dfs(int now){
-    if(!vis[now]){
-        vis[now] = 1;
-        for(auto i : adj[now]){
-            dfs(i);
-        }
-        v.push_back(now);
+using namespace std;
+using ll = long long;
+
+struct SCC {
+    int n, cur, cnt;
+    vector<vector<int>> adj;
+    vector<int> stk, dfn, low, bel;
+    SCC(int n_ = 0) { init(n_); }
+    void init(int n_) {
+        n = n_;
+        adj.assign(n, {});
+        dfn.assign(n, -1);
+        low.resize(n);
+        bel.assign(n, -1);
+        stk.clear();
+        cur = cnt = 0;
     }
-}
-void rev_dfs(int now){
-    if(!vis[now]){
-        vis[now] = 1;
-        order[now] = k;
-        for(auto i : rev_adj[now]){
-            rev_dfs(i);
-        }
-    }
-}
-void solve(){
-    cin >> n >> m;
-    rep(i, 1, n){
-        cin >> coin[i];
-    }
-    rep(i, 1, m){
-        int u, v; cin >> u >> v;
+    void addEdge(int u, int v) {
         adj[u].push_back(v);
-        rev_adj[v].push_back(u);
     }
-    rep(i, 1, n){
-        if(!vis[i]){
-            dfs(i);
-        }
-    }
-    reverse(all(v));
-    init(vis, 0);
-    for(auto i : v){
-        if(!vis[i]){
-            k++;
-            rev_dfs(i);
-        }
-    }
-    // 分類完scc
-    ll sum_coin[k+1], dp_coin[k+1];
-    init(sum_coin, 0); init(dp_coin, 0);
-    ll ans = -inf;
-    rep(i, 1, n){
-        sum_coin[order[i]] += coin[i];   // 當組+=coin;
-        for(auto j : adj[i]){
-            if(order[i] != order[j]){
-                DAG[order[i]].push_back(order[j]);
-                in[order[j]]++;
+    void dfs(int x) {
+        dfn[x] = low[x] = cur++;
+        stk.push_back(x);
+        for (auto y : adj[x]) {
+            if (dfn[y] == -1) {
+                dfs(y);
+                low[x] = min(low[x], low[y]);
+            } else if (bel[y] == -1) {
+                low[x] = min(low[x], dfn[y]);
             }
         }
-    }
-    // 拓樸dp
-    queue<int> q;
-    rep(i, 1, k){
-        if(in[i] == 0){
-            q.push(i);
+        if (dfn[x] == low[x]) {
+            int y;
+            do {
+                y = stk.back();
+                bel[y] = cnt;
+                stk.pop_back();
+            } while (y != x);
+            cnt++;
         }
     }
-    while(!q.empty()){
-        int now = q.front(); q.pop();
-        dp_coin[now] += sum_coin[now];
-        ans = max(ans, dp_coin[now]);
-        for(auto v : DAG[now]){
-            in[v]--;
-            dp_coin[v] = max(dp_coin[v], dp_coin[now]);
-            if(in[v] == 0) q.push(v);
+    vector<int> work() {
+        for (int i = 0; i < n; i++) {
+            if (dfn[i] == -1) dfs(i);
         }
+        return bel;
     }
-    cout << ans;
-}
-int main(){
-    IO;
-    int t = 1;
-    // cin >> t;
-    while(t--){
-        solve();
+    struct Graph {
+        int n;
+        vector<pair<int, int>> edges;
+        vector<int> siz;
+        vector<int> cnte;
+    };
+    Graph compress() {
+        Graph g;
+        g.n = cnt;
+        g.siz.resize(cnt);
+        g.cnte.resize(cnt);
+        for (int i = 0; i < n; i++) {
+            g.siz[bel[i]]++;
+            for (auto j : adj[i]) {
+                if (bel[i] != bel[j]) {
+                    g.edges.emplace_back(bel[i], bel[j]);
+                } else {
+                    g.cnte[bel[i]]++;
+                }
+            }
+        }
+        return g;
     }
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, m;
+    cin >> n >> m;
+    vector<int> a(n);
+    SCC f(n);
+    for (int i = 0; i < n; i++) {
+        cin >> a[i];
+    }
+    for (int i = 0; i < m; i++) {
+        int u, v;
+        cin >> u >> v;
+        u--, v--;
+        f.addEdge(u, v);
+    }
+
+    f.work();
+    auto g = f.compress();
+    int scc_n = g.n;
+    vector<ll> b(scc_n);
+    for (int i = 0; i < n; i++) {
+        b[f.bel[i]] += a[i];
+    }
+
+    vector<vector<int>> ing(scc_n);
+    for (auto [i, j] : g.edges) {
+        ing[i].push_back(j);
+    }
+
+    vector<ll> dp(scc_n);
+    vector<bool> vis(scc_n);
+    auto dfs = [&](auto self, int x) -> ll {
+        if (vis[x]) {
+            return dp[x];
+        }
+        dp[x] = b[x];
+        if (!ing[x].empty()) {
+            ll res = 0;
+            for (auto y : ing[x]) {
+                res = max(res, self(self, y));
+            }
+            dp[x] += res;
+        }
+        vis[x] = true;
+        return dp[x];
+    };
+    for (int i = 0; i < scc_n; i++) {
+        dfs(dfs, i);
+    }
+    cout << *max_element(dp.begin(), dp.end()) << "\n";
+
+    return 0;
 }

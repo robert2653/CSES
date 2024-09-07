@@ -1,78 +1,77 @@
 #include <bits/stdc++.h>
+
 using namespace std;
-#pragma GCC optimize ("03")
+using ll = long long;
+
 struct query {
     int l, r, id;
-} typedef query;
-void MO(int n, vector<query> &queries){
-    int block = sqrt(n);
-    function <bool(query, query)> cmp = [&](query a, query b) {
-        int block_a = a.l / block;
-        int block_b = b.l / block;
-        if(block_a != block_b) return block_a < block_b;
+};
+void Mo(vector<query> &q) {
+    int block = sqrt(q.size());
+    sort(q.begin(), q.end(), [&](const query &a, const query &b) {
+        int x = a.l / block;
+        int y = b.l / block;
+        if (x != y) return x < y;
         return a.r < b.r;
-    };
-    sort(queries.begin(), queries.end(), cmp);
-}
-void compress(vector<int> &nums){
-    vector<int> sorted = nums;
-    sort(sorted.begin(), sorted.end());
-    unique(sorted.begin(), sorted.end());
-    for(int i = 0; i < nums.size(); i++){
-        nums[i] = lower_bound(sorted.begin(), sorted.end(), nums[i]) - sorted.begin() + 1;
-    }
+    });
 }
 
-void add(int val, vector<int> &nums, vector<int> &record, int &distinct){
-    record[val]++;;
-    if(record[val] == 1) distinct++;
-}
-void remove(int val, vector<int> &nums, vector<int> &record, int &distinct){
-    record[val]--;
-    if(record[val] == 0) distinct--;
-}
-void solve(){
-    int n, q; cin >> n >> q;
-    vector<int> nums(n);
-    vector<int> record(n + 1, 0);
-    vector<query> queries(q);
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, q;
+    cin >> n >> q;
+    vector<int> a(n);
+    for (int i = 0; i < n; i++) {
+        cin >> a[i];
+    }
+    vector<int> b = a;
+    sort(b.begin(), b.end());
+    b.resize(unique(b.begin(), b.end()) - b.begin());
+    for (int i = 0; i < n; i++) {
+        a[i] = lower_bound(b.begin(), b.end(), a[i]) - b.begin();
+    }
+
+    vector<query> qry;
+    for (int i = 0; i < q; i++) {
+        int l, r;
+        cin >> l >> r;
+        qry.push_back({l - 1, r, i});
+    }
+    Mo(qry);
+
     vector<int> ans(q);
-    int distinct = 0;
-    for(int i = 0; i < n; i++){
-        cin >> nums[i];
-    }
-    compress(nums);
-    for(int i = 0; i < q; i++){
-        int l, r; cin >> l >> r;
-        queries[i] = {l - 1, r - 1, i};
-    }
-    MO(n, queries);
-    int cl = 1, cr = 0;
-    for(auto [l, r, id] : queries){
-        while (cl > l) {
-            cl--;
-            add(nums[cl], nums, record, distinct);
+    int nl = 0, nr = 0;
+    vector<int> rec(n);
+    int now = 0;
+
+    for (auto [l, r, id] : qry) {
+        while (nl > l) {
+            nl--;
+            if (!rec[a[nl]]) now++;
+            rec[a[nl]]++;
         }
-        while (cr < r) {
-            cr++;
-            add(nums[cr], nums, record, distinct);
+        while (nl < l) {
+            rec[a[nl]]--;
+            if (!rec[a[nl]]) now--;
+            nl++;
         }
-        while (cl < l) {
-            remove(nums[cl], nums, record, distinct);
-            cl++;
+        while (nr > r) {
+            nr--;
+            rec[a[nr]]--;
+            if (!rec[a[nr]]) now--;
         }
-        while (cr > r) {
-            remove(nums[cr], nums, record, distinct);
-            cr--;
+        while (nr < r) {
+            if (!rec[a[nr]]) now++;
+            rec[a[nr]]++;
+            nr++;
         }
-        ans[id] = distinct;
+        ans[id] = now;
     }
-    for(auto &i : ans){
-        cout << i << "\n";
+
+    for (int i = 0; i < q; i++) {
+        cout << ans[i] << "\n";
     }
-}
-int main(){
-    ios::sync_with_stdio(0);
-    cin.tie(0);
-    solve();
+    return 0;
 }

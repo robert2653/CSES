@@ -3,43 +3,37 @@
 using namespace std;
 using ll = long long;
 
-constexpr int Mod = 1e9 + 7;
+constexpr int Mod = 1E9 + 7;
 
-int findBit(int x) {
-    return (1 << x);
-}
-
-void solve() {
+void hamiltonianPath() {
     int n, m; cin >> n >> m;
-    vector adj(n, vector<int>());
+    vector<vector<int>> adj(n);
     for (int i = 0; i < m; i++) {
         int u, v; cin >> u >> v;
         adj[--v].push_back(--u);
     }
     // 以...為終點，走過...
-    vector dp(n, vector<int>(findBit(n)));
+    vector dp(n, vector<int>(1 << n));
     dp[0][1] = 1;
-    for (int mask = 1; mask < findBit(n); mask++) {
+    for (int mask = 1; mask < 1 << n; mask++) {
         if ((mask & 1) == 0) continue;
         for (int i = 0; i < n; i++) {
-            if ((mask & findBit(i)) == 0) continue;
-            if (i == n - 1 && mask != findBit(n) - 1) continue;
-            int pre_mask = mask ^ findBit(i);
+            if ((mask >> i & 1) == 0) continue;
+            if (i == n - 1 && mask != (1 << n) - 1) continue;
+            int pre = mask ^ (1 << i);
             for (int j : adj[i]) {
-                if ((pre_mask & findBit(j)) == 0) continue;
-                dp[i][mask] = (dp[i][mask] + dp[j][pre_mask]) % Mod;
+                if ((pre >> j & 1) == 0) continue;
+                dp[i][mask] = (dp[i][mask] + dp[j][pre]) % Mod;
             }
         }
     }
-    cout << dp[n - 1][findBit(n) - 1] << "\n";
+    cout << dp[n - 1][(1 << n) - 1] << "\n";
 }
 
 int main() {
     ios_base::sync_with_stdio(false);
     cin.tie(nullptr);
-    int t = 1;
-    // cin >> t;
-    while (t--) {
-        solve();
-    }
+    
+    hamiltonianPath();
+    return 0;
 }

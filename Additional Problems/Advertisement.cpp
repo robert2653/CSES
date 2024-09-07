@@ -16,12 +16,10 @@ void solve() {
             stk.pop_back();
         }
         stk.emplace_back(l, h);
-        if (i == n - 1) {
-            while (!stk.empty()) {
-                ans = max(ans, (n - stk.back().first) * stk.back().second);
-                stk.pop_back();
-            }
-        }
+    }
+    while (!stk.empty()) {
+        ans = max(ans, (n - stk.back().first) * stk.back().second);
+        stk.pop_back();
     }
     cout << ans << "\n";
 }
