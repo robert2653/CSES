@@ -3,7 +3,7 @@ using namespace std;
 
 // z[i] 表示 s 和 s[i, n - 1] (以 s[i] 開頭的後綴)
 // 的最長公共前綴 (LCP) 的長度
-vector<int> Z(string s) {
+vector<int> Z(const string &s) {
     int n = s.size();
     vector<int> z(n);
     z[0] = n; // lcp(s, s), -1 or n
@@ -17,34 +17,25 @@ vector<int> Z(string s) {
     return z;
 }
 
-void solve() {
-    string s; cin >> s;
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    string s;
+    cin >> s;
+    int n = s.length();
     vector<int> res = Z(s);
-    res.pop_back();
 
     vector<int> ans;
-    for (int i = 1, n = s.size(); i < n; i++) {
-        // cerr << i << " " << res[i] << "\n";
+    for (int i = 1; i < s.size(); i++) {
         if (res[i] + i == n) {
             ans.push_back(i);
         }
     }
-
-    sort(ans.begin(), ans.end());
-    int n = unique(ans.begin(), ans.end()) - ans.begin();
-
-    for (int i = 0; i < n; i++) {
-        cout << ans[i] << " ";
+    ans.push_back(s.length());
+    for (auto x : ans) {
+        cout << x << " \n"[x == ans.back()];
     }
-    cout << s.size();
-}
 
-int main() {
-    ios_base::sync_with_stdio(0);
-    cin.tie(nullptr);
-    int t = 1;
-    // cin >> t;
-    while (t--) {
-        solve();
-    }
+    return 0;
 }

@@ -1,205 +1,167 @@
 #include <bits/stdc++.h>
+#include <chrono>
+
 using namespace std;
-#define all(x) (x).begin(), (x).end()
-#define endl "\n"
-#define lrep(i, st, n) for(int i = st; i < n; i++)
-#define rep(i, st, n) for(int i = st; i <= n; i++)
-#define sz size()
-#define pb(x) push_back(x)
-#define ppb pop_back()
-#define IO ios_base::sync_with_stdio(0); cin.tie(0);
-#define init(x) memset(x, 0, sizeof(x));
-#define lp 2*now
-#define rp 2*now+1
-#define mid (L+R)/2
-typedef long long int ll;
-typedef pair<int, int> pii;
-typedef vector<int> vi;
-typedef vector<pii> vii;
-typedef struct {
-    int from; int to;
-    ll weight;
-} edge;
-typedef struct {
-    ll val;
+using ll = long long;
+
+template<class Info, class Tag = bool()>
+struct Treap {
+    vector<Info> info;
+    vector<Tag> tag;
+    vector<int> siz, par, rev, pri;
+    vector<array<int, 2>> ch;
+    Treap(int n) : info(n + 1), tag(n + 1), siz(n + 1),
+        par(n + 1), rev(n + 1), pri(n + 1), ch(n + 1) {
+        for (int i = 1; i <= n; i++)
+            siz[i] = 1, pri[i] = rand();
+    }
+    void apply(int t, const Tag &v) {
+        info[t].apply(siz[t], v);
+        tag[t].apply(v);
+    }
+    void push(int t) {
+        if (rev[t]) {
+            swap(ch[t][0], ch[t][1]);
+            if (ch[t][0]) rev[ch[t][0]] ^= 1;
+            if (ch[t][1]) rev[ch[t][1]] ^= 1;
+            rev[t] = 0;
+        }
+        apply(ch[t][0], tag[t]);
+        apply(ch[t][1], tag[t]);
+        tag[t] = Tag();
+    }
+    void pull(int t) {
+        siz[t] = 1 + siz[ch[t][0]] + siz[ch[t][1]];
+        info[t].pull(info[ch[t][0]], info[ch[t][1]]);
+    }
+    int merge(int a, int b) {
+        if (!a || !b) return a ? a : b;
+        push(a), push(b);
+        if (pri[a] > pri[b]) {
+            ch[a][1] = merge(ch[a][1], b);
+            pull(a);
+            return a;
+        } else {
+            ch[b][0] = merge(a, ch[b][0]);
+            pull(b);
+            return b;
+        }
+    }
+    pair<int, int> split(int t, int k) {
+        if (!t) return {0, 0};
+        push(t);
+        if (siz[ch[t][0]] < k) {
+            auto [a, b] = split(ch[t][1], k - siz[ch[t][0]] - 1);
+            ch[t][1] = a;
+            pull(t);
+            return {t, b};
+        } else {
+            auto [a, b] = split(ch[t][0], k);
+            ch[t][0] = b;
+            pull(t);
+            return {a, t};
+        }
+    }
+    template<class F>   // 尋找區間內，第一個符合條件的
+    int findFirst(int t, F &&pred) {
+        if (!t) return 0;
+        push(t);
+        if (!pred(info[t])) return 0;
+        if (!ch[t][0]) return 1;
+        int idx = findFirst(ch[t][0], pred);
+        if (!idx) idx = 1 + siz[ch[t][0]] + findFirst(ch[t][1], pred);
+        return idx;
+    }
+    int getPos(int rt, int t) { // get t's index in array
+        int res = siz[t] + 1;
+        while (t != rt) {
+            int p = par[t];
+            if (ch[p][1] == t) {
+                res += siz[ch[p][0]] + 1;
+            }
+            t = p;
+        }
+        return res;
+    }
+    void getArray(int t, vector<Info> &a) {
+        if (!t) return;
+        push(t);
+        getArray(ch[t][0], a);
+        a.push_back(info[t]);
+        getArray(ch[t][1], a);
+    }
+};
+struct Tag {
+    int setVal;
     ll add;
+    void apply(const Tag &t) {
+        if (t.setVal) {
+            setVal = t.setVal;
+            add = t.add;
+        } else {
+            add += t.add;
+        }
+    }
+};
+struct Info {
+    ll val;
     ll sum;
-} Node;
-const ll inf = 1LL << 62;
-const int intf = INT_MAX;
-const int maxn = 2e5+5;
-Node tree[maxn*4];
-int nums[maxn];
-int n, q;
+    void apply(int siz, const Tag &t) {
+        if (t.setVal) {
+            val = t.setVal;
+            sum = 1LL * siz * t.setVal;
+        }
+        val += t.add;
+        sum += 1LL * siz * t.add;
+    }
+    void pull(const Info &l, const Info &r) {
+        sum = val + l.sum + r.sum;
+    }
+};
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
 
-void push(int now, int child){
-    if(tree[now].val){
-        tree[child].val = tree[now].val;
-        tree[child].add = tree[now].add;
-    }
-    else {
-        tree[child].add += tree[now].add;
-    }
-}
-void apply_tag(int now, int L, int R){
-    if(tree[now].val)
-        tree[now].sum = (R-L+1)*tree[now].val;
-    tree[now].sum += (R-L+1)*tree[now].add;
-    if(L != R){
-        push(now, lp);
-        push(now, rp);
-    }
-    tree[now].add = tree[now].val = 0;
-}
-void build(int L, int R, int now){
-    if(L == R){
-        tree[now].sum = nums[L];
-        return;
-    }
-    int M = mid;
-    build(L, M, lp);
-    build(M+1, R, rp);
-    tree[now].sum = tree[lp].sum + tree[rp].sum;
-}
-void modify_add(int l, int r, int L, int R, int now, int add){
-    if(R < l || r < L)
-        return;
-    if(l <= L && R <= r){
-        tree[now].add += add;	// 到底了，加好不丟了
-        return;
-    }
-    apply_tag(now, L, R);	// 丟下去
-    int M = mid;
-    modify_add(l, r, L, M, lp, add);	// 走下來
-    modify_add(l, r, M+1, R, rp, add);	// 走下來
-    apply_tag(lp, L, M);	// 算好(最底的也會，順便丟下去)
-    apply_tag(rp, M+1, R);	// 算好(最底的也會，順便丟下去)
-    tree[now].sum = tree[lp].sum + tree[rp].sum;	// 加上去
-}
-void modify_mod(int l, int r, int L, int R, int now, int mod){
-    if(R < l || r < L)
-        return;
-    if(l <= L && R <= r){
-		tree[now].val = mod;
-		tree[now].add = 0;
-        return;
-    }
-    apply_tag(now, L, R);
-    int M = mid;
-    modify_mod(l, r, L, M, lp, mod);
-    modify_mod(l, r, M+1, R, rp, mod);
-    apply_tag(lp, L, M);
-    apply_tag(rp, M+1, R);
-    tree[now].sum = tree[lp].sum + tree[rp].sum;
-}
-ll query(int l, int r, int L, int R, int now){
-    int M = mid;
-    // if(l <= L && R <= r){
-    //     apply_tag(now, L, R);
-    //     return tree[now].sum;
-    // }
-    // if(r <= M){
-    //     apply_tag(now, L, R);
-    //     return query(l, r, L, M, lp);
-    // }
-    // else if(M < l){
-    //     apply_tag(now, L, R);
-    //     return query(l, r, M+1, R, rp);
-    // }
-    // else {
-    //     apply_tag(now, L, R);
-    //     return query(l, r, L, M, lp) + query(l, r, M+1, R, rp);
-    // }
-    if(R < l || r < L || L > n){
-        return 0;
-    }
-    apply_tag(now, L, R);
-    if(l <= L && R <= r){
-        return tree[now].sum;
-    }
-	return query(l, r, L, M, lp) + query(l, r, M+1, R, rp);
-}
-void solve(){
+    auto start = chrono::high_resolution_clock::now();
+    // freopen("1.in", "r", stdin);
+    // freopen("1.out", "w", stdout);
+
+    int n, q;
     cin >> n >> q;
-    rep(i, 1, n){
-        cin >> nums[i];
+    vector<int> a(n);
+    for (int i = 0; i < n; i++) {
+        cin >> a[i];
     }
-    init(tree);
-    build(1, n, 1);
-    rep(i, 1, q){
-        int op; cin >> op;
-        if(op == 1){
-            int l, r, add; cin >> l >> r >> add;
-            modify_add(l, r, 1, n, 1, add);
-        }
-        else if(op == 2){
-            int l, r, mod; cin >> l >> r >> mod;
-            modify_mod(l, r, 1, n, 1, mod);
-        }
-        else {
-            int l, r; cin >> l >> r;
-            cout << query(l, r, 1, n, 1) << endl;
-        }
+    Treap<Info, Tag> tr(n);
+    int rt = 0;
+    for (int i = 0; i < n; i++) {
+        tr.info[i + 1].val = a[i];
+        tr.info[i + 1].sum = a[i];
+        rt = tr.merge(rt, i + 1);
     }
-}
-int main(){
-    IO;
-    solve();
-}
-// void modify_add(int l, int r, int L, int R, int now, int add){
-//     if(l <= L && R <= r){
-//         tree[now].add += add;
-//         return;
-//     }
-//     int M = mid;
-//     if(r <= M){
-//         apply_tag(now, L, R);
-//         modify_add(l, r, L, M, lp, add);
-//         apply_tag(lp, L, M);
-//         apply_tag(rp, M+1, R);
-//     }
-//     else if(l > M){
-//         apply_tag(now, L, R);
-//         modify_add(l, r, M+1, R, rp, add);
-//         apply_tag(lp, L, M);
-//         apply_tag(rp, M+1, R);
-//     }
-//     else {
-//         apply_tag(now, L, R);
-//         modify_add(l, r, L, M, lp, add);
-//         modify_add(l, r, M+1, R, rp, add);
-//         apply_tag(lp, L, M);
-//         apply_tag(rp, M+1, R);
-//     }
-//     tree[now].sum = tree[lp].sum + tree[rp].sum;
-// }
+    for (int i = 0; i < q; i++) {
+        int t, a, b;
+        cin >> t >> a >> b;
+        int l, m, r;
+        tie(l, r) = tr.split(rt, a - 1);
+        tie(m, r) = tr.split(r, b - a + 1);
+        if (t == 1) {
+            int add;
+            cin >> add;
+            tr.apply(m, {0, add});
+        } else if (t == 2) {
+            int val;
+            cin >> val;
+            tr.apply(m, {val, 0});
+        } else {
+            ll res = tr.info[m].sum;
+            cout << res << "\n";
+        }
+        rt = tr.merge(tr.merge(l, m), r);
+    }
 
-// void modify_mod(int l, int r, int L, int R, int now, int mod){
-//     if(l <= L && R <= r){
-//         tree[now].set_val = 1;
-//         tree[now].val = mod;
-//         tree[now].add = 0;
-//         return;
-//     }
-//     int M = mid;
-//     if(r <= M){
-//         apply_tag(now, L, R);
-//         modify_mod(l, r, L, M, lp, mod);
-//         apply_tag(lp, L, M);
-//         apply_tag(rp, M+1, R);
-//     }
-//     else if(l > M){
-//         apply_tag(now, L, R);
-//         modify_mod(l, r, M+1, R, rp, mod);
-//         apply_tag(lp, L, M);
-//         apply_tag(rp, M+1, R);
-//     }
-//     else{
-//         apply_tag(now, L, R);
-//         modify_mod(l, r, L, M, lp, mod);
-//         modify_mod(l, r, M+1, R, rp, mod);
-//         apply_tag(lp, L, M);
-//         apply_tag(rp, M+1, R);
-//     }
-//     tree[now].sum = tree[lp].sum + tree[rp].sum;
-// }
+    auto end = chrono::high_resolution_clock::now();
+    auto duration = chrono::duration_cast<chrono::milliseconds>(end - start);
+    cerr << "Time: " << duration.count() << " ms" << endl;
+    return 0;
+}

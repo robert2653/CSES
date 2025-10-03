@@ -1,100 +1,87 @@
 #include <bits/stdc++.h>
-
+ 
 using namespace std;
 using ll = long long;
-
-struct SAM { // 1 is initial state, 1-based
+ 
+struct SAM {
+    // 1 -> initial state
     static constexpr int ALPHABET_SIZE = 26;
+    // node -> strings with the same endpos set
+    // link -> longest suffix with different endpos set
+    // len -> state's longest suffix
+    // fpos -> first endpos
+    // strlen range -> [len(link) + 1, len]
     struct Node {
-        int len;
-        int link;
+        int len, link = -1, fpos;
         array<int, ALPHABET_SIZE> next;
-        Node() : len{}, link{}, next{} {}
     };
     vector<Node> t;
-    SAM() {
-        init();
-    }
-    void init() {
-        t.assign(2, Node());
-        t[0].next.fill(1);
-        t[0].len = -1;
-    }
+    SAM() : t(1) {}
     int newNode() {
         t.emplace_back();
         return t.size() - 1;
     }
     int extend(int p, int c) {
-        if (t[p].next[c]) {
-            int q = t[p].next[c];
-            if (t[q].len == t[p].len + 1) {
-                return q;
-            }
-            int r = newNode();
-            t[r].len = t[p].len + 1;
-            t[r].link = t[q].link;
-            t[r].next = t[q].next;
-            t[q].link = r;
-            while (t[p].next[c] == q) {
-                t[p].next[c] = r;
-                p = t[p].link;
-            }
-            return r;
-        }
         int cur = newNode();
         t[cur].len = t[p].len + 1;
-        while (!t[p].next[c]) {
+        t[cur].fpos = t[cur].len - 1;
+        while (p != -1 && !t[p].next[c]) {
             t[p].next[c] = cur;
             p = t[p].link;
         }
-        t[cur].link = extend(p, c);
+        if (p == -1) {
+            t[cur].link = 0;
+        } else {
+            int q = t[p].next[c];
+            if (t[p].len + 1 == t[q].len) {
+                t[cur].link = q;
+            } else {
+                int r = newNode();
+                t[r] = t[q];
+                t[r].len = t[p].len + 1;
+                while (p != -1 && t[p].next[c] == q) {
+                    t[p].next[c] = r;
+                    p = t[p].link;
+                }
+                t[q].link = t[cur].link = r;
+            }
+        }
         return cur;
     }
 };
 
-void solve() {
-    string s; ll k;
-    cin >> s >> k;
-
-    int n = s.length();
-    SAM sam;
+void solve_SAM(int n, string s, ll k) {  // Substring Order II
     vector<int> last(n + 1);
-    last[0] = 1;
-    for (int i = 0; i < n; i++) {
+    SAM sam;
+    for (int i = 0; i < n; i++)
         last[i + 1] = sam.extend(last[i], s[i] - 'a');
-    }
-
     int sz = sam.t.size();
-    vector<int> cnt(sz);
+
+    vector<int> cnt(sz); // endpos size
     for (int i = 1; i <= n; i++) cnt[last[i]]++;
-    vector<vector<int>> order(sz);
-    for (int i = 1; i < sz; i++) {
-        order[sam.t[i].len].push_back(i);
-    }
-    for (int i = sz - 1; i >= 0; i--) {
-        for (int u : order[i]) {
-            if (sam.t[u].link != -1) {
-                cnt[sam.t[u].link] += cnt[u];
-            }
-        }
-    }
+    vector<vector<int>> g(sz);
+    for (int i = 1; i < sz; i++)
+        g[sam.t[i].link].push_back(i);
+    auto dfs = [&](auto self, int u) -> void {
+        for (auto v : g[u])
+            self(self, v), cnt[u] += cnt[v];
+    }; dfs(dfs, 0);
 
     vector<ll> dp(sz, -1);
-    auto dfs = [&](auto self, int u) -> void {
-        dp[u] = cnt[u];
+    // for any path from root, how many substring's prefix is the the path string
+    auto rec = [&](auto self, int u) -> ll {
+        if (dp[u] != -1) return dp[u];
+        dp[u] = cnt[u]; // distinct: = 1
         for (int c = 0; c < SAM::ALPHABET_SIZE; c++) {
             int v = sam.t[u].next[c];
-            if (v) {
-                if (dp[v] == -1) self(self, v);
-                dp[u] += dp[v];
-            }
+            if (v) dp[u] += self(self, v);
         }
+        return dp[u];
     };
-    dfs(dfs, 1); // a, ab, abc, b, bc, c
+    rec(rec, 0);
 
-    string ans;
-    int p = 1;
-    while (k > 0) {
+    int p = 0; string ans;
+    while (k > 0) { // 1-based
         for (int c = 0; c < SAM::ALPHABET_SIZE; c++) {
             int v = sam.t[p].next[c];
             if (v) {
@@ -102,24 +89,22 @@ void solve() {
                     k -= dp[v];
                 } else {
                     ans.push_back('a' + c);
-                    k -= cnt[v];
-                    p = v;
-                    break;
+                    k -= cnt[v]; // distinct: --
+                    p = v; break;
                 }
             }
         }
-    }
-    
-    cout << ans << "\n";
+    } cout << ans << "\n";
 }
-
+ 
 int main() {
-    // freopen("1.in", "r", stdin);
     ios_base::sync_with_stdio(false);
     cin.tie(nullptr);
-    int t = 1;
-    // cin >> t;
-    while (t--) {
-        solve();
-    }
+
+    string s;
+    ll k;
+    cin >> s >> k;
+    solve_SAM(s.length(), s, k);
+
+    return 0;
 }

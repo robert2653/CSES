@@ -1,90 +1,198 @@
 #include <bits/stdc++.h>
 using namespace std;
-#define all(x) (x).begin(), (x).end()
-#define endl "\n"
-#define rep(i, st, n) for(int i = st; i < n; i++)
-#define sz size()
-#define pb(x) push_back(x)
-#define ppb pop_back()
-#define IO ios_base::sync_with_stdio(0); cin.tie(0);
-#define init(x) memset(x, 0, sizeof(x));
-#define lp 2*now
-#define rp 2*now+1
-typedef long long int ll;
-typedef pair<int, int> pii;
-typedef vector<int> vi;
-typedef vector<pii> vii;
-typedef struct{
-    int from; int to;
-    ll weight;
-} edge;
-const ll inf = 1LL << 62;
-const int intf = INT_MAX;
-const int maxn = 2e5+5;
+using ll = long long;
 
-ll nums[maxn];
-ll tree[4*maxn];
-ll ans;
+template<class Info, class Tag = bool()>
+struct SegmentTree { // [l, r), uncomment /**/ to lazy
+    int n;
+    vector<Info> info;
+    /*
+    vector<Tag> tag;
+    */
+    SegmentTree() : n(0) {}
+    SegmentTree(int n_, Info v_ = Info()) {
+        init(n_, v_);
+    }
 
-void build(int L, int R, int now){
-    if(L == R){
-        tree[now] = nums[L];
-        return;
+    template<class T>
+    SegmentTree(vector<T> init_) {
+        init(init_);
     }
-    int M = (L + R) / 2;
-    build(L, M, lp);
-    build(M+1, R, rp);
-    tree[now] = tree[lp] + tree[rp];
-}
-void modify(int pos, int L, int R, int now){
-    if(L == R){
-        tree[now] = nums[pos];
-        return;
+
+    void init(int n_, Info v_ = Info()) {
+        init(vector(n_, v_));
     }
-    int M = (L + R) / 2;
-    if(pos <= M) modify(pos, L, M, lp);
-    else modify(pos, M+1, R, rp);
-    tree[now] = tree[lp] + tree[rp];
-}
-void query(int l, int r, int L, int R, int now){
-    if(l <= L && R <= r){
-        ans += tree[now];
-        return;
+
+    template<class T>
+    void init(vector<T> init_) {
+        n = init_.size();
+        info.assign(4 << __lg(n), Info());
+        /*
+        tag.assign(4 << __lg(n), Tag());
+        */
+        function<void(int, int, int)> build = [&](int p, int l, int r) {
+            if (r - l == 1) {
+                info[p] = init_[l];
+                return;
+            }
+            int m = (l + r) / 2;
+            build(p * 2, l, m);
+            build(p * 2 + 1, m, r);
+            pull(p);
+        };
+        build(1, 0, n);
     }
-    int M = (L + R) / 2;
-    if(r <= M){
-        query(l, r, L, M, lp);
+    void pull(int p) {
+        info[p] = info[p * 2] + info[p * 2 + 1];
     }
-    else if(l > M){
-        query(l, r, M+1, R, rp);
+    /*
+    void apply(int p, int l, int r, const Tag &v) {
+        info[p].apply(l, r, v);
+        tag[p].apply(v);
     }
-    else {
-        query(l, r, L, M, lp);
-        query(l, r, M+1, R, rp);
+    void push(int p, int l, int r) {
+        int m = (l + r) / 2;
+        if (r - l >= 1) {
+            apply(p * 2, l, m, tag[p]);
+            apply(p * 2 + 1, m, r, tag[p]);
+        }
+        tag[p] = Tag();
     }
-}
-void solve(){
-    int n, q; cin >> n >> q;
-    rep(i, 1, n+1){
-        cin >> nums[i];
+    */
+    void modify(int p, int l, int r, int x, const Info &v) {
+        if (r - l == 1) {
+            info[p] = v;
+            return;
+        }
+        int m = (l + r) / 2;
+        /*
+        push(p, l, r);
+        */
+        if (x < m) {
+            modify(2 * p, l, m, x, v);
+        } else {
+            modify(2 * p + 1, m, r, x, v);
+        }
+        pull(p);
     }
-    build(1, n, 1);
-    rep(i, 1, q+1){
-        int op; cin >> op;
-        if(op == 1){
-            int pos; cin >> pos;
-            cin >> nums[pos];
-            modify(pos, 1, n, 1);
+    void modify(int p, const Info &i) {
+        modify(1, 0, n, p, i);
+    }
+    Info query(int p, int l, int r, int ql, int qr) {
+        if (qr <= l || ql >= r) return Info();
+        if (ql <= l && r <= qr) return info[p];
+        int m = (l + r) / 2;
+        /*
+        push(p, l, r);
+        */
+	    return query(p * 2, l, m, ql, qr) + query(p * 2 + 1, m, r, ql, qr);
+    }
+    Info query(int ql, int qr) {
+        return query(1, 0, n, ql, qr);
+    }
+    /*
+    void rangeApply(int p, int l, int r, int ql, int qr, const Tag &v) {
+        if (qr <= l || ql >= r) return;
+        if (ql <= l && r <= qr) {
+            apply(p, l, r, v);
+            return;
+        }
+        int m = (l + r) / 2;
+        push(p, l, r);
+        rangeApply(p * 2, l, m, ql, qr, v);
+        rangeApply(p * 2 + 1, m, r, ql, qr, v);
+        pull(p);
+    }
+    void rangeApply(int l, int r, const Tag &v) {
+        rangeApply(1, 0, n, l, r, v);
+    }
+    */
+    template<class F>   // 尋找區間內，第一個符合條件的
+    int findFirst(int p, int l, int r, int x, int y, F &&pred) {
+        if (l >= y || r <= x) return -1;
+        if (l >= x && r <= y && !pred(info[p])) return -1;
+        if (r - l == 1) return l;
+        int m = (l + r) / 2;
+        /*
+        push(p, l, r);
+        */
+        int res = findFirst(2 * p, l, m, x, y, pred);
+        if (res == -1)
+            res = findFirst(2 * p + 1, m, r, x, y, pred);
+        return res;
+    }
+    template<class F>   // 若要找 last，先右子樹遞迴即可
+    int findFirst(int l, int r, F &&pred) {
+        return findFirst(1, 0, n, l, r, pred);
+    }
+};
+// 有些 Tag 不用 push 例如 sweepLine
+/*
+struct Tag {
+    int set_val;
+    int add;
+    void apply(const Tag& t) & {
+        if (t.set_val) {
+            set_val = t.set_val;
+            add = t.add;
         }
         else {
-            int l, r; cin >> l >> r;
-            ans = 0;
-            query(l, r, 1, n, 1);
-            cout << ans << endl;
+            add += t.add;
         }
     }
+};
+*/
+struct Info {
+    int n = 0;
+    ll sum = 0;
+    /*
+    void apply(int l, int r, const Tag &t) & {
+        if (t.set_val) {
+            sum = (r - l) * t.set_val;
+        }
+        sum += (r - l) * t.add;
+    }
+    */
+    // 部分 assignment 使用
+    // Info &operator=(const Info &rhs) {
+    //     return *this;
+    // }
+    Info &operator=(const ll &rhs) {
+        sum = rhs;
+        return *this;
+    }
+};
+Info operator+(const Info &a, const Info &b) {
+    Info c;
+    c.n = a.n + b.n;
+    c.sum = a.sum + b.sum;
+    return c;
 }
-int main(){
-    IO;
-    solve();
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+    int n, q;
+    cin >> n >> q;
+    vector<ll> a(n);
+    for (int i = 0; i < n; i++) {
+        cin >> a[i];
+    }
+    SegmentTree<Info, Info> seg(a);
+    for (int i = 0; i < q; i++) {
+        int op;
+        cin >> op;
+        if (op == 2) {
+            int l, r;
+            cin >> l >> r;
+            l--;
+            cout << seg.query(l, r).sum << "\n";
+        } else {
+            int p, x;
+            cin >> p >> x;
+            p--;
+            seg.modify(p, {1, a[p] = x});
+        }
+    }
+    return 0;
 }

@@ -54,11 +54,15 @@ struct SuffixArray {
     }
 };
 
-struct SAM { // 1 is initial state, 1-based
+struct SAM {
+    // 1 -> initial state
     static constexpr int ALPHABET_SIZE = 26;
+    // node -> strings with the same endpos set
+    // length in range [len(link) + 1, len]
+    // link -> longest suffix with different endpos set
+    // len  -> state's longest suffix
     struct Node {
-        int len;
-        int link;
+        int len, link;
         array<int, ALPHABET_SIZE> next;
         Node() : len{}, link{}, next{} {}
     };
@@ -112,21 +116,18 @@ void solve() {
     for (int i = 0; i < n; i++) {
         last[i + 1] = sam.extend(last[i], s[i] - 'a');
     }
+    
     int sz = sam.t.size();
     vector<int> cnt(sz);
-    for (int i = 1; i <= n; i++) cnt[last[i]]++;
+    for (int i = 1; i <= n; i++)
+        cnt[last[i]]++;
     vector<vector<int>> order(sz);
-    for (int i = 1; i < sz; i++) {
+    for (int i = 1; i < sz; i++)
         order[sam.t[i].len].push_back(i);
-    }
-    for (int i = sz - 1; i > 0; i--) {
-        for (int u : order[i]) {
-            if (sam.t[u].link != -1) {
-                cnt[sam.t[u].link] += cnt[u];
-            }
-        }
-    }
-
+    for (int i = n; i > 0; i--)
+        for (int u : order[i])
+            cnt[sam.t[u].link] += cnt[u];
+    
     int q; cin >> q;
     while (q--) {
         string sub; cin >> sub;

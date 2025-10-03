@@ -55,82 +55,104 @@ struct SuffixArray {
     }
 };
 
-struct SAM { // 0 is initial state, 1-based
+void solve_SA() {
+    string s;
+    cin >> s;
+    int n = s.length();
+    SuffixArray SA(s);
+
+    ll k;
+    cin >> k;
+
+    for (int i = 0; i < n; i++) {
+        int p = SA.sa[i];
+        int m = n - p;
+        int lc = i > 0 ? SA.lc[i - 1] : 0;
+        m -= lc;
+        if (k > m) {
+            k -= m;
+        } else {
+            // 找第 m 大的
+            cout << s.substr(p, k + lc) << "\n";
+            return;
+        }
+    }
+}
+
+struct SAM {
+    // 1 -> initial state
     static constexpr int ALPHABET_SIZE = 26;
+    // node -> strings with the same endpos set
+    // link -> longest suffix with different endpos set
+    // len -> state's longest suffix
+    // fpos -> first endpos
+    // strlen range -> [len(link) + 1, len]
     struct Node {
-        int len;
-        int link;
+        int len, link = -1, fpos;
         array<int, ALPHABET_SIZE> next;
-        Node() : len{}, link{}, next{} {}
     };
     vector<Node> t;
-    SAM() {
-        init();
-    }
-    void init() {
-        t.assign(2, Node());
-        t[0].next.fill(1);
-        t[0].len = -1;
-    }
+    SAM() : t(1) {}
     int newNode() {
         t.emplace_back();
         return t.size() - 1;
     }
     int extend(int p, int c) {
-        if (t[p].next[c]) {
-            int q = t[p].next[c];
-            if (t[q].len == t[p].len + 1) {
-                return q;
-            }
-            int r = newNode();
-            t[r].len = t[p].len + 1;
-            t[r].link = t[q].link;
-            t[r].next = t[q].next;
-            t[q].link = r;
-            while (t[p].next[c] == q) {
-                t[p].next[c] = r;
-                p = t[p].link;
-            }
-            return r;
-        }
         int cur = newNode();
         t[cur].len = t[p].len + 1;
-        while (!t[p].next[c]) {
+        t[cur].fpos = t[cur].len - 1;
+        while (p != -1 && !t[p].next[c]) {
             t[p].next[c] = cur;
             p = t[p].link;
         }
-        t[cur].link = extend(p, c);
+        if (p == -1) {
+            t[cur].link = 0;
+        } else {
+            int q = t[p].next[c];
+            if (t[p].len + 1 == t[q].len) {
+                t[cur].link = q;
+            } else {
+                int r = newNode();
+                t[r] = t[q];
+                t[r].len = t[p].len + 1;
+                while (p != -1 && t[p].next[c] == q) {
+                    t[p].next[c] = r;
+                    p = t[p].link;
+                }
+                t[q].link = t[cur].link = r;
+            }
+        }
         return cur;
     }
 };
 
-void solve() {
-    string s; cin >> s;
-    ll k; cin >> k;
-    
+void solve_SAM() {
+    string s;
+    cin >> s;
+ 
     int n = s.length();
+    vector<int> last(n + 1); // s[i - 1] 的後綴終點位置
     SAM sam;
-    int last = 1;
-    for (char c : s) {
-        last = sam.extend(last, c - 'a');
+    for (int i = 0; i < n; i++) {
+        last[i + 1] = sam.extend(last[i], s[i] - 'a');
     }
-
+ 
     int sz = sam.t.size();
+ 
     vector<ll> dp(sz, -1);
-
-    auto dfs = [&](auto self, int u) -> void {
-        if (dp[u] != -1) return;
+    auto rec = [&](auto self, int u) -> ll {
+        if (dp[u] != -1) return dp[u];
         dp[u] = 1;
         for (int c = 0; c < SAM::ALPHABET_SIZE; c++) {
             int v = sam.t[u].next[c];
-            if (v) {
-                self(self, v);
-                dp[u] += dp[v];
-            }
+            if (v) dp[u] += self(self, v);
         }
+        return dp[u];
     };
-    dfs(dfs, 1);
+    rec(rec, 1);
 
+    ll k;
+    cin >> k;
     string ans;
     int p = 1;
     while (k > 0) {
@@ -141,46 +163,22 @@ void solve() {
                     k -= dp[v];
                 } else {
                     ans.push_back('a' + c);
-                    k -= 1;
+                    k--;
                     p = v;
                     break;
                 }
             }
         }
     }
-    
     cout << ans << "\n";
-
-
-    // string s;
-    // cin >> s;
-    // int n = s.length();
-    // SuffixArray SA(s);
-
-    // ll k; cin >> k;
-
-    // for (int i = 0; i < n; i++) {
-    //     int p = SA.sa[i];
-    //     int m = n - p;
-    //     int lc = i > 0 ? SA.lc[i - 1] : 0;
-    //     m -= lc;
-    //     if (k > m) {
-    //         k -= m;
-    //     } else {
-    //         // 找第 m 大的
-    //         cout << s.substr(p, k + lc) << "\n";
-    //         return;
-    //     }
-    // }
 }
 
 int main() {
-    // freopen("1.in", "r", stdin);
-    ios_base::sync_with_stdio(false);
+    ios::sync_with_stdio(false);
     cin.tie(nullptr);
-    int t = 1;
-    // cin >> t;
-    while (t--) {
-        solve();
-    }
+
+    // solve_SA();
+    solve_SAM();
+
+    return 0;
 }

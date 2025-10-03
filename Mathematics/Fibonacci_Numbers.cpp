@@ -2,156 +2,109 @@
 using namespace std;
 using ll = long long;
 
-template<class T>
-constexpr T power(T a, ll b) {
-    T res {1};
-    for (; b; b /= 2, a *= a)
-        if (b % 2) res *= a;
-    return res;
-}
-constexpr ll mul(ll a, ll b, ll p) {
+ll mul(ll a, ll b, ll p) {
     ll res = a * b - ll(1.L * a * b / p) * p;
     res %= p;
     if (res < 0) res += p;
     return res;
 }
-template<ll P>
-struct MInt {
+// 改 MLong: getMod() < (1ULL << 31)，會爆用 mul
+template<class T>
+constexpr T power(T a, ll b) {
+    T res {1};
+    for (; b > 0; b >>= 1, a = a * a)
+        if (b & 1) res = res * a;
+    return res;
+}
+template<int P>
+struct Mint {
+    static int Mod;
+    static int getMod()
+    { return P > 0 ? P : Mod; }
+    static void setMod(int Mod_)
+    { Mod = Mod_; }
     ll x;
-    constexpr MInt() : x {0} {}
-    constexpr MInt(ll x) : x {norm(x % getMod())} {}
-    static ll Mod;
-    constexpr static ll getMod() {
-        if (P > 0) return P;
-        else return Mod;
-    }
-    constexpr static void setMod(ll Mod_) {
-        Mod = Mod_;
-    }
-    constexpr ll norm(ll x) const {
+    Mint(ll x = 0) : x {norm(x % getMod())} {}
+    ll norm(ll x) const {
         if (x < 0) x += getMod();
         if (x >= getMod()) x -= getMod();
         return x;
     }
-    constexpr MInt operator-() const {
-        MInt res;
-        res.x = norm(getMod() - x);
-        return res;
-    }
-    constexpr MInt inv() const {
-        return power(*this, getMod() - 2);
-    }
-    constexpr MInt &operator*=(MInt rhs) & {
-        if (getMod() < (1ULL << 31)) {
-            x = x * rhs.x % int(getMod());
-        } else {
-            x = mul(x, rhs.x, getMod());
-        }
-        return *this;
-    }
-    constexpr MInt &operator+=(MInt rhs) & {
-        x = norm(x + rhs.x);
-        return *this;
-    }
-    constexpr MInt &operator-=(MInt rhs) & {
-        x = norm(x - rhs.x);
-        return *this;
-    }
-    constexpr MInt &operator/=(MInt rhs) & {
-        return *this *= rhs.inv();
-    }
-    friend constexpr MInt operator*(MInt lhs, MInt rhs) {
-        MInt res = lhs; return res *= rhs;
-    }
-    friend constexpr MInt operator+(MInt lhs, MInt rhs) {
-        MInt res = lhs; return res += rhs;
-    }
-    friend constexpr MInt operator-(MInt lhs, MInt rhs) {
-        MInt res = lhs; return res -= rhs;
-    }
-    friend constexpr MInt operator/(MInt lhs, MInt rhs) {
-        MInt res = lhs; return res /= rhs;
-    }
-    friend constexpr istream &operator>>(istream &is, MInt &a) {
-        ll v; is >> v; a = MInt(v); return is;
-    }
-    friend constexpr ostream &operator<<(ostream &os, const MInt &a) {
-        return os << a.x;
-    }
-    friend constexpr bool operator==(MInt lhs, MInt rhs) {
-        return lhs.x == rhs.x;
-    }
-    friend constexpr bool operator!=(MInt lhs, MInt rhs) {
-        return lhs.x != rhs.x;
-    }
-    friend constexpr bool operator<(MInt lhs, MInt rhs) {
-        return lhs.x < rhs.x;
-    }
+    explicit operator int() const { return x; }
+    Mint operator-() const
+    { return Mint(norm(getMod() - x)); }
+    Mint inv() const
+    { return power(*this, getMod() - 2); }
+    Mint operator+(Mint rhs) const
+    { return Mint(norm(x + rhs.x)); }
+    Mint operator-(Mint rhs) const
+    { return Mint(norm(x - rhs.x)); }
+    Mint operator*(Mint rhs) const
+    { return Mint(mul(x, rhs.x, getMod())); }
+    Mint operator/(Mint rhs) const
+    { return *this * rhs.inv(); }
+    friend istream &operator>>(istream &is, Mint &a)
+    { ll v; is >> v; a = Mint(v); return is; }
+    friend ostream &operator<<(ostream &os, Mint a)
+    { return os << a.x; }
+    bool operator==(Mint y) const { return x == y.x; }
+    bool operator!=(Mint y) const { return x != y.x; }
 };
 template<>
-ll MInt<0>::Mod = 998244353;
-constexpr int P = 1e9 + 7;
-using Z = MInt<P>;
+int Mint<0>::Mod = 998244353;
+constexpr int P = 1E9 + 7;
+using Z = Mint<P>;
 
 template<class T>
-struct Matrix {
-    int n, m;
-    vector<vector<T>> mat;
-    constexpr Matrix(int n_, int m_) { init(n_, m_); }
-    constexpr Matrix(vector<vector<T>> mat_) { init(mat_); }
-    constexpr void init(int n_, int m_) {
-        n = n_; m = m_;
-        mat.assign(n, vector<T>(m));
-    }
-    constexpr void init(vector<vector<T>> &mat_) {
-        n = mat_.size();
-        m = mat_[0].size();
-        mat = mat_;
-    }
-    constexpr Matrix &operator*=(const Matrix &rhs) & {
-        assert(mat[0].size() == rhs.mat.size());
-        int n = mat.size(), k = mat[0].size(), m = rhs.mat[0].size();
-        Matrix ans(n, m);
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < m; j++) {
-                for (int l = 0; l < k; l++) {
-                    ans.mat[i][j] += mat[i][l] * rhs.mat[l][j];
-                }
-            }
+vector<vector<T>> operator*(const vector<vector<T>> &a, const vector<vector<T>> &b) {
+    int n = a.size(), k = a[0].size(), m = b[0].size();
+    assert(k == b.size()); // 確保內部維度相符
+    vector<vector<T>> res(n, vector<T>(m));
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < m; j++)
+            for (int l = 0; l < k; l++)
+                res[i][j] = res[i][j] + a[i][l] * b[l][j];
+    return res;
+}
+template<class T>
+vector<vector<T>> unit(int n) {
+    vector<vector<T>> res(n, vector<T>(n));
+    for (int i = 0; i < n; i++)
+        res[i][i] = 1;
+    return res;
+}
+template<class T>
+vector<vector<T>> power(vector<vector<T>> a, ll b) {
+    int n = a.size();
+    assert(n == a[0].size());
+    auto res = unit<T>(n);
+    for (; b; b /= 2, a = a * a)
+        if (b % 2) res = res * a;
+    return res;
+}
+Z sum(const vector<vector<Z>> &a) {
+    Z res = 0;
+    const Z x = 1;
+    for (const auto &row : a)
+        for (const auto &val : row) {
+            const Z const_obj = 5;
+            bool result = res == x;  // 这会编译失败！
+            res = res + val;
         }
-        mat = ans.mat;
-        return *this;
-    }
-    friend constexpr Matrix operator*(Matrix lhs, const Matrix &rhs) {
-        return lhs *= rhs;
-    }
-};
-template<class T>
-constexpr Matrix<T> unit(int n) {
-    Matrix<T> res(n, n);
-    for (int i = 0; i < n; i++) {
-        res.mat[i][i] = 1;
-    }
-    return res;
-}
-template<class T>
-constexpr Matrix<T> power(Matrix<T> a, ll b) {
-    assert(a.n == a.m);
-    Matrix<T> res = unit<T>(a.n);
-    for (; b; b /= 2, a *= a)
-        if (b % 2) res *= a;
     return res;
 }
 
+using Matrix = vector<vector<Z>>;
 int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
 
     ll n; cin >> n;
-    Matrix<Z> base(vector<vector<Z>> {{0}, {1}});
-    Matrix<Z> trans(vector<vector<Z>> {{0, 1}, {1, 1}});
+    Matrix base {{0}, {1}};
+    Matrix trans {{0, 1}, {1, 1}};
     base = power(trans, n) * base;
-    cout << base.mat[0][0] << "\n";
+    cout << base[0][0] << "\n";
+    cout << sum(base) << "\n";
     
     return 0;
 }

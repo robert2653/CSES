@@ -1,140 +1,153 @@
 #include <bits/stdc++.h>
 using namespace std;
-#define all(x) (x).begin(), (x).end()
-#define endl "\n"
-#define lrep(i, st, n) for(int i = st; i < n; i++)
-#define rep(i, st, n) for(int i = st; i <= n; i++)
-#define sz size()
-#define pb(x) push_back(x)
-#define ppb pop_back()
-#define IO ios_base::sync_with_stdio(0); cin.tie(0);
-#define init(x) memset(x, 0, sizeof(x));
-#define lp 2*now
-#define rp 2*now+1
-#define mid (L+R)/2
-typedef long long int ll;
-typedef pair<int, int> pii;
-typedef vector<int> vi;
-typedef vector<pii> vii;
-typedef pair<ll, ll> pll;
-typedef vector<ll> vl;
-typedef vector<pll> vll;
-typedef struct {
-    int from; int to;
-    ll weight;
-} edge;
-typedef struct {
-    ll sum;
-} Node;
-const ll llinf = LLONG_MAX;
-const int inf = INT_MAX;
-const int maxn = 2e5+5;
+using ll = long long;
 
+template<class Info>
 struct Treap {
-    Treap *l, *r;
-    int pri, subsize, val; bool rev_valid;
-    ll sum;
-    Treap(int _val){
-        sum = val = _val;
+    Treap *lc, *rc, *par;
+    int pri, siz;
+    bool rev_valid;
+    Info info;
+    Treap(Info info) : info(info) {
         pri = rand();
-        rev_valid = false;
-        l = r = nullptr;
-        subsize = 1;
+        lc = rc = par = nullptr;
+        siz = 1, rev_valid = false;
     }
-    void pull(){
-        subsize = 1;
-        sum = val;
-        for(auto i: {l,r}){
-            if(i){
-                subsize += i->subsize;
-                sum += i->sum; 
-            }
+    void pull() {
+        siz = 1;
+        Info param[2] {Info(), Info()};
+        if (lc) siz += lc->siz, lc->par = this, param[0] = lc->info;
+        if (rc) siz += rc->siz, rc->par = this, param[0] = rc->info;
+        info.pull(param[0], param[1]);
+    }
+    void push() {
+        if (rev_valid) {
+            swap(lc, rc);
+            if (lc) lc->rev_valid ^= 1;
+            if (rc) rc->rev_valid ^= 1;
         }
+        rev_valid = false;
     }
 };
-void push(Treap *t){
-    if(!t) return;
-    if(t->rev_valid){
-        swap(t->l, t->r);
-        if(t->l) t->l->rev_valid ^= 1;
-        if(t->r) t->r->rev_valid ^= 1;
-    }
-    t->rev_valid = false;
-}
-int size(Treap *treap) {
-    if (treap == NULL) return 0;
-    return treap->subsize;
-}
-Treap *merge(Treap *a, Treap *b){
-    if(!a || !b) return a ? a : b;
-    push(a); push(b);
-    if(a->pri <= b->pri){
-        a->r = merge(a->r, b);
+template<class Info>
+int size(Treap<Info> *t) { return t ? t->siz : 0; }
+
+template<class Info>
+Treap<Info> *merge(Treap<Info> *a, Treap<Info> *b) {
+    if (!a || !b) return a ? a : b;
+    a->push(); b->push();
+    if (a->pri > b->pri) {
+        a->rc = merge(a->rc, b);
         a->pull();
         return a;
-    }
-    else {
-        b->l = merge(a, b->l);
+    } else {
+        b->lc = merge(a, b->lc);
         b->pull();
         return b;
     }
 }
-pair<Treap*, Treap*> split(Treap *root, int k) {
-	if (root == nullptr) return {nullptr, nullptr};
-    push(root);
-	if (size(root->l) < k) {
-		auto [a, b] = split(root->r, k - size(root->l) - 1);
-		root->r = a;
-		root->pull();
-		return {root, b};
-	} else {
-		auto [a, b] = split(root->l, k);
-		root->l = b;
-		root->pull();
-		return {a, root};
-	}
-}
-// void Print(Treap *t){
-//     if(t){
-//         push(t);
-//         Print(t->l);
-//         cout << t->val;
-//         Print(t->r);
-//     }
-// }
-void solve(){
-    int n, m; cin >> n >> m;
-    Treap *root = nullptr;
-    rep(i, 1, n){
-        int tmp; cin >> tmp;
-        root = merge(root, new Treap(tmp));
+
+template<class Info>
+pair<Treap<Info>*, Treap<Info>*> split(Treap<Info> *t, int k) {
+    // 分割前 k 個在 first，剩下的在 second
+    if (t == nullptr) return {nullptr, nullptr};
+    t->push();
+    if (size(t->lc) < k) {
+        auto [a, b] = split(t->rc, k - size(t->lc) - 1);
+        t->rc = a;
+        if (a) a->par = t;
+        if (b) b->par = nullptr;
+        t->pull();
+        return {t, b};
+    } else {
+        auto [a, b] = split(t->lc, k);
+        t->lc = b;
+        if (b) b->par = t;
+        if (a) a->par = nullptr;
+        t->pull();
+        return {a, t};
     }
-    rep(i, 1, m){
-        int op; cin >> op;  // 1 for rev, 2 for query
-        if(op == 1){
-            int x, y; cin >> x >> y;
-            if(x == y){
-                // Print(root); 
+}
+
+template<class Info>
+void printArray(Treap<Info> *t) {
+    if (!t) return;
+    t->push();
+    printArray(t->lc);
+    cout << t->info;
+    printArray(t->rc);
+}
+
+template<class Info, class F>
+int findFirst(Treap<Info> *t, F &&pred) { // 1-based
+    if (!pred(t->info)) return 0;
+    t->push();
+    if (!t->lc && !t->rc) return 1;
+    int ls = t->lc ? t->lc->siz : 0;
+    if (t->lc && pred(t->info)) return findFirst(t->lc, pred) + 1;
+    else return findFirst(t->rc, pred) + ls + 1;
+}
+
+template<class Info>
+int getpos(Treap<Info> *rt, Treap<Info> *t) {
+    int pos = (t->lc ? t->lc->siz : 0) + 1;
+    while (t != rt) {
+        Treap *par = nd->par;
+        if (par->rc == t) {
+            pos += (par->lc ? par->lc->siz : 0) + 1;
+        }
+        t = par;
+    }
+    return pos;
+}
+
+struct Info {
+    int v = 0;
+    ll sum = 0;
+    void pull(const Info &l, const Info &r) {
+        sum = v + l.sum + r.sum;
+        // min = std::min(min, ch.min);
+    }
+    friend ostream &operator<<(ostream &os, const Info &info) {
+        os << info.v << " ";
+        return os;
+    }
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+    int n, m;
+    cin >> n >> m;
+    Treap<Info> *root = nullptr;
+    for (int i = 0; i < n; i++) {
+        int tmp;
+        cin >> tmp;
+        root = merge(root, new Treap<Info>({tmp, tmp}));
+    }
+    for (int i = 0; i < m; i++) {
+        int op;
+        cin >> op;  // 1 for rev, 2 for query
+        if (op == 1) {
+            int x, y;
+            cin >> x >> y;
+            if (x == y) {
                 continue;
             }
-            auto [a, b] = split(root, x-1);
-            auto [c, d] = split(b, y-x+1);
+            auto [a, b] = split(root, x - 1);
+            auto [c, d] = split(b, y - x + 1);
             c->rev_valid ^= true;
-            push(c);
             b = merge(c, d);
             root = merge(a, b);
-        }
-        else {
-            int x, y; cin >> x >> y;
-            auto [a, b] = split(root, x-1);
-            auto [c, d] = split(b, y-x+1);
-            cout << c->sum << endl;
+        } else {
+            int x, y;
+            cin >> x >> y;
+            auto [a, b] = split(root, x - 1);
+            auto [c, d] = split(b, y - x + 1);
+            cout << c->info.sum << "\n";
             b = merge(c, d);
             root = merge(a, b);
         }
     }
-}
-int main(){
-    IO;
-    solve();
+    return 0;
 }

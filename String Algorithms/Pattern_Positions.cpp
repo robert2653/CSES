@@ -54,79 +54,34 @@ struct SuffixArray {
     }
 };
  
-template<class T, class Cmp = less<T>>
-struct RMQ {
-    const Cmp cmp = Cmp();
-    static constexpr unsigned B = 64;
-    using u64 = unsigned long long;
+template<class T, class F = less<T>>
+struct RMQ { // [l, r)
     int n;
-    vector<vector<T>> a;
-    vector<T> pre, suf, ini;
-    vector<u64> stk;
+    F cmp = F();
+    vector<vector<T>> g;
     RMQ() {}
-    RMQ(const vector<T> &v) { init(v); }
-    void init(const vector<T> &v) {
-        n = v.size();
-        pre = suf = ini = v;
-        stk.resize(n);
-        if (!n) {
-            return;
-        }
-        const int M = (n - 1) / B + 1;
-        const int lg = __lg(M);
-        a.assign(lg + 1, vector<T>(M));
-        for (int i = 0; i < M; i++) {
-            a[0][i] = v[i * B];
-            for (int j = 1; j < B && i * B + j < n; j++) {
-                a[0][i] = min(a[0][i], v[i * B + j], cmp);
-            }
-        }
-        for (int i = 1; i < n; i++) {
-            if (i % B) {
-                pre[i] = min(pre[i], pre[i - 1], cmp);
-            }
-        }
-        for (int i = n - 2; i >= 0; i--) {
-            if (i % B != B - 1) {
-                suf[i] = min(suf[i], suf[i + 1], cmp);
-            }
-        }
-        for (int j = 0; j < lg; j++) {
-            for (int i = 0; i + (2 << j) <= M; i++) {
-                a[j + 1][i] = min(a[j][i], a[j][i + (1 << j)], cmp);
-            }
-        }
-        for (int i = 0; i < M; i++) {
-            const int l = i * B;
-            const int r = min(1U * n, l + B);
-            u64 s = 0;
-            for (int j = l; j < r; j++) {
-                while (s && cmp(v[j], v[__lg(s) + l])) {
-                    s ^= 1ULL << __lg(s);
-                }
-                s |= 1ULL << (j - l);
-                stk[j] = s;
-            }
-        }
-    } 
-    T operator()(int l, int r) {
-        if (l / B != (r - 1) / B) {
-            T ans = min(suf[l], pre[r - 1], cmp);
-            l = l / B + 1;
-            r = r / B;
-            if (l < r) {
-                int k = __lg(r - l);
-                ans = min({ans, a[k][l], a[k][r - (1 << k)]}, cmp);
-            }
-            return ans;
-        } else {
-            int x = B * (l / B);
-            return ini[__builtin_ctzll(stk[r - 1] >> (l - x)) + l];
+    RMQ(const vector<T> &a, F cmp = F()) : cmp(cmp) {
+        init(a);
+    }
+    void init(const vector<T> &a) {
+        n = a.size();
+        int lg = __lg(n);
+        g.resize(lg + 1);
+        g[0] = a;
+        for (int j = 1; j <= lg; j++) {
+            g[j].resize(n - (1 << j) + 1);
+            for (int i = 0; i <= n - (1 << j); i++)
+                g[j][i] = min(g[j - 1][i], g[j - 1][i + (1 << (j - 1))], cmp);
         }
     }
+    T operator()(int l, int r) {
+        assert(0 <= l && l < r && r <= n);
+        int lg = __lg(r - l);
+        return min(g[lg][l], g[lg][r - (1 << lg)], cmp);
+    }
 };
- 
-void solve() {
+
+void solve_SA() {
     string s;
     cin >> s;
     int n = s.length();
@@ -137,36 +92,117 @@ void solve() {
     int q; cin >> q;
  
     for (int i = 0; i < q; i++) {
-        string sub; cin >> sub;
-        int lo = 0, hi = n - 1;
-        while (lo <= hi) {
-            int mid = (lo + hi) / 2;
-            if (s.compare(sa.sa[mid], sub.length(), sub) <= 0) {
-                lo = mid + 1;
+        string sub;
+        cin >> sub;
+        int lo = 0, hi = n;
+        while (lo < hi) {
+            int x = (lo + hi) / 2;
+            if (s.compare(sa.sa[x], sub.length(), sub) >= 0) {
+                hi = x;
             } else {
-                hi = mid - 1;
+                lo = x + 1;
             }
         }
-        int res = hi;
-        lo = 0, hi = n - 1;
-        while (lo <= hi) {
-            int mid = (lo + hi) / 2;
-            if (s.compare(sa.sa[mid], sub.length(), sub) >= 0) {
-                hi = mid - 1;
+        int res = lo;
+        lo = -1, hi = n - 1;
+        while (lo < hi) {
+            int x = (lo + hi + 1) / 2;
+            if (s.compare(sa.sa[x], sub.length(), sub) <= 0) {
+                lo = x;
             } else {
-                lo = mid + 1;
+                hi = x - 1;
             }
         }
-        cout << (res - lo + 1 == 0 ? -1 : rmq(lo, res + 1) + 1) << "\n";
+        cout << (lo - res + 1 == 0 ? -1 : rmq(res, lo + 1) + 1) << "\n";
     }
 }
- 
+
+struct SAM {
+    // 1 -> initial state
+    static constexpr int ALPHABET_SIZE = 26;
+    // node -> strings with the same endpos set
+    // link -> longest suffix with different endpos set
+    // len -> state's longest suffix
+    // fpos -> first endpos
+    // strlen range -> [len(link) + 1, len]
+    struct Node {
+        int len, link = -1, fpos;
+        array<int, ALPHABET_SIZE> next;
+    };
+    vector<Node> t;
+    SAM() : t(1) {}
+    int newNode() {
+        t.emplace_back();
+        return t.size() - 1;
+    }
+    int extend(int p, int c) {
+        int cur = newNode();
+        t[cur].len = t[p].len + 1;
+        t[cur].fpos = t[cur].len - 1;
+        while (p != -1 && !t[p].next[c]) {
+            t[p].next[c] = cur;
+            p = t[p].link;
+        }
+        if (p == -1) {
+            t[cur].link = 0;
+        } else {
+            int q = t[p].next[c];
+            if (t[p].len + 1 == t[q].len) {
+                t[cur].link = q;
+            } else {
+                int r = newNode();
+                t[r] = t[q];
+                t[r].len = t[p].len + 1;
+                while (p != -1 && t[p].next[c] == q) {
+                    t[p].next[c] = r;
+                    p = t[p].link;
+                }
+                t[q].link = t[cur].link = r;
+            }
+        }
+        return cur;
+    }
+};
+
+void solve_SAM() {
+    string s;
+    cin >> s;
+    SAM sam;
+    int n = s.length();
+    vector<int> last(n + 1);
+    for (int i = 0; i < n; i++) {
+        last[i + 1] = sam.extend(last[i], s[i] - 'a');
+    }
+
+    int q;
+    cin >> q;
+    while (q--) {
+        string t;
+        cin >> t;
+        int p = 0;
+        bool f = true;
+        for (auto c : t) {
+            if (!sam.t[p].next[c - 'a']) {
+                f = false;
+                break;
+            } else {
+                p = sam.t[p].next[c - 'a'];
+            }
+        }
+        if (f) {
+            cout << sam.t[p].fpos - t.length() + 2 << "\n";
+        } else {
+            cout << -1 << "\n";
+        }
+    }
+}
+
 int main() {
     ios_base::sync_with_stdio(false);
     cin.tie(nullptr);
-    int t = 1;
-    // cin >> t;
-    while (t--) {
-        solve();
-    }
+
+    // solve_SA();
+    solve_SAM();
+
+    return 0;
 }

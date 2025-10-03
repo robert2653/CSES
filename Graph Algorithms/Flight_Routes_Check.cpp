@@ -5,27 +5,16 @@ using ll = long long;
 
 struct SCC {
     int n, cur, cnt;
-    vector<vector<int>> adj;
-    vector<int> stk, dfn, low, bel;
-    SCC(int n_ = 0) {
-        init(n_);
-    }
-    void init(int n_) {
-        n = n_;
-        adj.assign(n, {});
-        dfn.assign(n, -1);
-        low.resize(n);
-        bel.assign(n, -1);
-        stk.clear();
-        cur = cnt = 0;
-    }
-    void addEdge(int u, int v) {
-        adj[u].push_back(v);
+    vector<int> low, bel, dfn, stk;
+    vector<vector<int>> g;
+    SCC(int n) : n(n), cur(0), cnt(0), low(n), bel(n, -1), dfn(n, -1), g(n) {}
+    void addEdge(int x, int y) {
+        g[x].push_back(y);
     }
     void dfs(int x) {
         dfn[x] = low[x] = cur++;
         stk.push_back(x);
-        for (auto y : adj[x]) {
+        for (int y : g[x]) {
             if (dfn[y] == -1) {
                 dfs(y);
                 low[x] = min(low[x], low[y]);
@@ -37,23 +26,21 @@ struct SCC {
             int y;
             do {
                 y = stk.back();
-                bel[y] = cnt;
                 stk.pop_back();
-            } while (y != x);
+                bel[y] = cnt;
+            } while (x != y);
             cnt++;
         }
     }
-    vector<int> work() {
+    void work() {
         for (int i = 0; i < n; i++) {
             if (dfn[i] == -1) dfs(i);
         }
-        return bel;
     }
     struct Graph {
         int n;
-        vector<pair<int, int>> edges;
-        vector<int> siz;
-        vector<int> cnte;
+        vector<pair<int, int>> e;
+        vector<int> siz, cnte;
     };
     Graph compress() {
         Graph g;
@@ -62,9 +49,9 @@ struct SCC {
         g.cnte.resize(cnt);
         for (int i = 0; i < n; i++) {
             g.siz[bel[i]]++;
-            for (auto j : adj[i]) {
+            for (int j : this->g[i]) {
                 if (bel[i] != bel[j]) {
-                    g.edges.emplace_back(bel[i], bel[j]);
+                    g.e.emplace_back(bel[i], bel[j]);
                 } else {
                     g.cnte[bel[i]]++;
                 }
@@ -75,6 +62,7 @@ struct SCC {
 };
 
 void solve() {
+    string s;
     int n, m; cin >> n >> m;
     SCC g(n);
     for (int i = 0; i < m; i++) {
@@ -93,7 +81,7 @@ void solve() {
         cerr << "\n";
         auto f = g.compress();
         vector<set<int>> adj(f.n);
-        for (auto [i, j] : f.edges) {
+        for (auto [i, j] : f.e) {
             adj[i].insert(j);
             // cerr << i << " " << j << "\n";
         }

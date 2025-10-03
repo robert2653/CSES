@@ -9,34 +9,42 @@ struct PST {
         Info info = Info();
         int lc = 0, rc = 0;
     };
+    int n = 0;
     vector<Node> nd;
-    int n = 0; vector<int> rt;
+    vector<int> rt;
     PST() : n(0) {}
-    PST(int n_, Info v_ = Info()) { init(n_, v_); }
+    PST(int n_, Info v_ = Info()) {
+        init(n_, v_);
+    }
+
     template<class T>
-    PST(vector<T> init_) { init(init_); }
+    PST(vector<T> init_) {
+        init(init_);
+    }
+
     void init(int n_, Info v_ = Info()) {
         init(vector<Info>(n_, v_));
     }
+    
     template<class T>
     void init(vector<T> init_) {
         n = init_.size();
-        nd.clear(); rt.clear();
-        nd.emplace_back(); // 讓 root 指向 1-based
-        rt.push_back(build(0, n, init_));
-    }
-    int build(int l, int r, vector<Info> &init_) {
-        int id = nd.size();
-        nd.emplace_back();
-        if (r - l == 1) {
-            nd[id].info = init_[l];
+        nd.assign(1, Node());
+        rt.clear();
+        function<int(int, int)> build = [&](int l, int r) {
+            int id = nd.size();
+            nd.emplace_back();
+            if (r - l == 1) {
+                nd[id].info = init_[l];
+                return id;
+            }
+            int m = (l + r) >> 1;
+            nd[id].lc = build(l, m);
+            nd[id].rc = build(m, r);
+            pull(nd[id]);
             return id;
-        }
-        int m = (l + r) >> 1;
-        nd[id].lc = build(l, m, init_);
-        nd[id].rc = build(m, r, init_);
-        pull(nd[id]);
-        return id;
+        };
+        rt.push_back(build(0, n));
     }
     void pull(Node &t) {
         t.info = nd[t.lc].info + nd[t.rc].info;
@@ -55,7 +63,7 @@ struct PST {
             nd[t].info = v;
             return t;
         }
-        int m = (l + r) >> 1;
+        int m = (l + r) / 2;
         if (x < m) {
             nd[t].lc = modify(nd[t].lc, l, m, x, v);
         } else {
@@ -64,14 +72,14 @@ struct PST {
         pull(nd[t]);
         return t;
     }
-    void modify(int ver, int pos, const Info &val) {
+    void modify(int ver, int p, const Info &i) {
         if (int(rt.size()) <= ver) rt.resize(ver + 1);
-        rt[ver] = modify(rt[ver], 0, n, pos, val);
+        rt[ver] = modify(rt[ver], 0, n, p, i);
     }
     Info query(int t, int l, int r, int ql, int qr) {
         if (l >= qr || r <= ql) return Info();
         if (ql <= l && r <= qr) return nd[t].info;
-        int m = (l + r) >> 1;
+        int m = (l + r) / 2;
         return query(nd[t].lc, l, m, ql, qr) + query(nd[t].rc, m, r, ql, qr);
     }
     Info query(int ver, int ql, int qr) {
@@ -100,6 +108,7 @@ Info operator+(const Info& a, const Info& b) {
 int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
+    // freopen("1.in","r",stdin);
  
     int n, q;
     cin >> n >> q;

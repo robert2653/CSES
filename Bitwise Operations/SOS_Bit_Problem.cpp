@@ -14,7 +14,7 @@ void solve() {
     }
     // x | y = x, 代表包含於 x 的 y 個數, 定義為 dp[x][0]
     // x & y = x, 代表包含 x 的 y 個數, 定義為 dp[x][1]
-    // x & y != 0, 代表至少有一個位元都為 1 的 y 個數, = n - 與自己相同 - ~dp[x][0]
+    // x & y != 0, 代表至少有一個位元都為 1 的 y 個數, = n - dp[~x][0]
 
     int m = __lg(*max_element(a.begin(), a.end())) + 1;
 

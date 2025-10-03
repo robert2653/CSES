@@ -58,4 +58,6 @@ int main() {
         cout << x + 1 << " ";
         cnt--;
     }
+
+    return 0;
 }

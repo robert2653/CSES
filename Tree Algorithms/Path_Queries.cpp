@@ -8,142 +8,98 @@ struct LinkCutTree { // 1-based
     struct Node {
         Info info = Info();
         Tag tag = Tag();
-        bool rev = false;
-        int size = 0;
-        int ch[2];
-        int p = 0;
+        int siz = 0, ch[2], p = 0, rev = 0;
     };
     vector<Node> nd;
-    void init(int n = 0) {
-        nd.clear();
-        nd.emplace_back();
-        resize(n);
-    }
-    void resize(int n) {
-        nd.resize(n + 1);
-    }
+    LinkCutTree(int n) : nd(n + 1) {}
     bool isrt(int t) {
-        return !nd[t].p || (nd[nd[t].p].ch[0] != t && nd[nd[t].p].ch[1] != t);
+        return nd[nd[t].p].ch[0] != t && nd[nd[t].p].ch[1] != t;
     }
-    void make_rev(int t) {
+    int pos(int t) { // t 是其 par 的左/右
+        return nd[nd[t].p].ch[1] == t;
+    }
+    void applyRev(int t) {
         swap(nd[t].ch[0], nd[t].ch[1]);
-        nd[t].rev ^= true;
+        nd[t].rev ^= 1;
     }
     void apply(int t, const Tag &v) {
-        nd[t].info.apply(nd[t].size, v);
+        nd[t].info.apply(nd[t].siz, v);
         nd[t].tag.apply(v);
     }
     void push(int t) {
         if (nd[t].rev) {
-            if (nd[t].ch[0]) make_rev(nd[t].ch[0]);
-            if (nd[t].ch[1]) make_rev(nd[t].ch[1]);
-            nd[t].rev = false;
+            if (nd[t].ch[0]) applyRev(nd[t].ch[0]);
+            if (nd[t].ch[1]) applyRev(nd[t].ch[1]);
+            nd[t].rev = 0;
         }
         if (nd[t].ch[0]) apply(nd[t].ch[0], nd[t].tag);
         if (nd[t].ch[1]) apply(nd[t].ch[1], nd[t].tag);
         nd[t].tag = Tag();
     }
     void pull(int t) {
-        nd[t].size = 1 + nd[nd[t].ch[0]].size + nd[nd[t].ch[1]].size;
+        nd[t].siz = 1 + nd[nd[t].ch[0]].siz + nd[nd[t].ch[1]].siz;
         nd[t].info.pull(nd[nd[t].ch[0]].info, nd[nd[t].ch[1]].info);
     }
-    int pos(int t) {
-        return nd[nd[t].p].ch[1] == t;
-    }
     void pushAll(int t) {
-        if (!isrt(t)) {
-            pushAll(nd[t].p);
-        }
+        if (!isrt(t)) pushAll(nd[t].p);
         push(t);
     }
-    void rotate(int t) {
-        int q = nd[t].p;
-        int x = !pos(t);
-        nd[q].ch[!x] = nd[t].ch[x];
-        if (nd[t].ch[x]) nd[nd[t].ch[x]].p = q;
-        nd[t].p = nd[q].p;
-        if (!isrt(q)) nd[nd[q].p].ch[pos(q)] = t;
-        nd[t].ch[x] = q;
-        nd[q].p = t;
-        pull(q);
+    void rotate(int x) { // x 與其 par 交換位置
+        int f = nd[x].p, r = pos(x);
+        nd[f].ch[r] = nd[x].ch[!r];
+        if (nd[x].ch[!r]) nd[nd[x].ch[!r]].p = f;
+        nd[x].p = nd[f].p;
+        if (!isrt(f)) nd[nd[f].p].ch[pos(f)] = x;
+        nd[x].ch[!r] = f, nd[f].p = x;
+        pull(f), pull(x);
     }
-    void splay(int t) {
-        pushAll(t);
-        while (!isrt(t)) {
-            if (!isrt(nd[t].p)) {
-                if (pos(t) == pos(nd[t].p)) {
-                    rotate(nd[t].p);
-                } else {
-                    rotate(t);
-                }
-            }
-            rotate(t);
-        }
-        pull(t);
+    void splay(int x) {
+        pushAll(x);
+        for (int f = nd[x].p; f = nd[x].p, !isrt(x); rotate(x))
+        if (!isrt(f)) rotate(pos(x) == pos(f) ? f : x);
     }
-    void access(int t) { // access 後自動 splay
-        for (int i = t, q = 0; i; q = i, i = nd[i].p) {
-            splay(i);
-            nd[i].ch[1] = q;
-            pull(i);
-        }
-        splay(t);
+    void access(int x) {
+        for (int f = 0; x; f = x, x = nd[x].p)
+            splay(x), nd[x].ch[1] = f, pull(x);
     }
-    void makeRoot(int t) {
-        access(t);
-        make_rev(t);
+    void makeRoot(int p) {
+        access(p), splay(p), applyRev(p);
     }
-    int findRoot(int t) {
-        access(t);
-        int x = t;
-        while (nd[x].ch[0]) {
-            push(x);
-            x = nd[x].ch[0];
-        }
-        access(x);
-        return x;
+    int findRoot(int x) {
+        access(x), splay(x);
+        while (nd[x].ch[0]) x = nd[x].ch[0];
+        splay(x); return x;
+    }
+    void split(int x, int y) { // y 為根
+        makeRoot(x), access(y), splay(y);
+    }
+    void link(int rt, int p) {
+        makeRoot(rt), nd[rt].p = p;
+    }
+    void cut(int x, int y) {
+        makeRoot(x), access(y), splay(y);
+        nd[y].ch[0] = nd[nd[y].ch[0]].p = 0;
+        pull(y);
+    }
+    
+    bool neighbor(int x, int y) {
+        makeRoot(x), access(y);
+        if (nd[y].ch[0] != x || nd[x].ch[1]) return false;
+        return true;
     }
     bool connected(int x, int y) {
         return findRoot(x) == findRoot(y);
     }
-    bool neighber(int x, int y) {
-        makeRoot(x);
-        access(y);
-        if (nd[y].ch[0] != x || nd[x].ch[1]) return false;
-        return true;
-    }
-    void split(int rt, int y) {
-        makeRoot(y);
-        access(rt);
-    }
-    void link(int t, int p) {
-        makeRoot(t);
-        if (findRoot(p) != t) {
-            nd[t].p = p;
-        }
-    }
-    bool cut(int x, int y) {
-        makeRoot(x);
-        access(y);
-        if (nd[y].ch[0] != x || nd[x].ch[1]) return false;
-        nd[y].ch[0] = nd[nd[y].ch[0]].p = 0;
-        pull(x);
-        pull(y);
-        return true;
-    }
     void modify(int x, const Info &v) {
-        access(x);
-        nd[x].info = v;
+        access(x), nd[x].info = v;
     }
-    void path_apply(int x, int y, const Tag &v) {
+    void pathApply(int x, int y, const Tag &v) {
         assert(connected(x, y));
-        split(x, y);
-        apply(x, v);
+        split(x, y), apply(y, v);
     }
-    Info path_query(int x, int y) {
+    Info pathQuery(int x, int y) {
         assert(connected(x, y));
-        split(x, y);
-        return nd[x].info;
+        split(x, y); return nd[y].info;
     }
 };
 struct Tag {
@@ -163,8 +119,7 @@ int main() {
 
     int n, q;
     cin >> n >> q;
-    LinkCutTree<Info, Tag> lct;
-    lct.resize(n);
+    LinkCutTree<Info, Tag> lct(n);
     for (int i = 1; i <= n; i++) {
         int x;
         cin >> x;
@@ -174,8 +129,7 @@ int main() {
         int u, v;
         cin >> u >> v;
         lct.link(u, v);
-        lct.modify(u, lct.path_query(u, u));
-        assert(lct.neighber(u, v));
+        lct.modify(u, lct.pathQuery(u, u));
     }
     while (q--) {
         int op;
@@ -187,7 +141,7 @@ int main() {
         } else {
             int p;
             cin >> p;
-            cout << lct.path_query(1, p).sum << "\n";
+            cout << lct.pathQuery(1, p).sum << "\n";
         }
     }
 

@@ -1,66 +1,52 @@
 #include <bits/stdc++.h>
-using namespace std;
-#define all(x) (x).begin(), (x).end()
-#define endl "\n"
-#define rep(i, st, n) for(int i = st; i < n; i++)
-#define sz size()
-#define pb(x) push_back(x)
-#define ppb pop_back()
-#define IO ios_base::sync_with_stdio(0); cin.tie(0);
-#define init(x) memset(x, 0, sizeof(x));
-#define lp 2*now
-#define rp 2*now+1
-typedef long long int ll;
-typedef pair<int, int> pii;
-typedef vector<int> vi;
-typedef vector<pii> vii;
-typedef struct{
-    int from; int to;
-    ll weight;
-} edge;
-const ll inf = 1LL << 62;
-const int intf = INT_MAX;
-const int maxn = 2e5+5;
 
-ll nums[maxn];
-ll tree[4*maxn];
-void build(int L, int R, int now){
-    if(L == R){
-        tree[now] = nums[L];
-        return;
+using namespace std;
+using ll = long long;
+
+template<class T, class F = less<T>>
+struct RMQ { // [l, r)
+    int n;
+    F cmp = F();
+    vector<vector<T>> g;
+    RMQ() {}
+    RMQ(const vector<T> &a, F cmp = F()) : cmp(cmp) {
+        init(a);
     }
-    int M = (L + R) / 2;
-    build(L, M, lp);
-    build(M+1, R, rp);
-    tree[now] = min(tree[lp], tree[rp]);
-}
-ll query(int l, int r, int L, int R, int now){
-    if(l <= L && R <= r){
-        return tree[now];
+    void init(const vector<T> &a) {
+        n = a.size();
+        int lg = __lg(n);
+        g.resize(lg + 1);
+        g[0] = a;
+        for (int j = 1; j <= lg; j++) {
+            g[j].resize(n - (1 << j) + 1);
+            for (int i = 0; i <= n - (1 << j); i++) {
+                g[j][i] = min(g[j - 1][i], g[j - 1][i + (1 << (j - 1))], cmp);
+            }
+        }
     }
-    int M = (L + R) / 2;
-    if(r <= M){
-        return query(l, r, L, M, lp);
+    T operator()(int l, int r) {
+        assert(0 <= l && l < r && r <= n);
+        int lg = __lg(r - l);
+        return min(g[lg][l], g[lg][r - (1 << lg)], cmp);
     }
-    else if(l > M){
-        return query(l, r, M+1, R, rp);
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, q;
+    cin >> n >> q;
+    vector<int> a(n);
+    for (int i = 0; i < n; i++) {
+        cin >> a[i];
     }
-    else {
-        return min(query(l, r, L, M, lp), query(l, r, M+1, R, rp));
+    RMQ<int> rmq(a);
+    while (q--) {
+        int l, r;
+        cin >> l >> r;
+        cout << rmq(l - 1, r) << "\n";
     }
-}
-int main(){
-    IO;
-    int n, q; cin >> n >> q;
-    rep(i, 1, n+1){
-        cin >> nums[i];
-    }
-    build(1, n, 1);
-    rep(i, 1, q+1){
-        int l, r; cin >> l >> r;
-        cout << query(l, r, 1, n, 1) << endl;
-    }
-    // rep(i, 1, 4*n+1){
-    //     cout << i << ":" << tree[i] << endl;
-    // }
+
+    return 0;
 }

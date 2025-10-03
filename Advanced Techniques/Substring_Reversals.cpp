@@ -1,124 +1,122 @@
 #include <bits/stdc++.h>
 using namespace std;
-#define all(x) (x).begin(), (x).end()
-#define endl "\n"
-#define lrep(i, st, n) for(int i = st; i < n; i++)
-#define rep(i, st, n) for(int i = st; i <= n; i++)
-#define sz size()
-#define pb(x) push_back(x)
-#define ppb pop_back()
-#define IO ios_base::sync_with_stdio(0); cin.tie(0);
-#define init(x) memset(x, 0, sizeof(x));
-#define lp 2*now
-#define rp 2*now+1
-#define mid (L+R)/2
-typedef long long int ll;
-typedef pair<int, int> pii;
-typedef vector<int> vi;
-typedef vector<pii> vii;
-typedef pair<ll, ll> pll;
-typedef vector<ll> vl;
-typedef vector<pll> vll;
-typedef struct {
-    int from; int to;
-    ll weight;
-} edge;
-typedef struct {
-    ll sum;
-} Node;
-const ll llinf = LLONG_MAX;
-const int inf = INT_MAX;
-const int maxn = 2e5+5;
 
+template<class Info>
 struct Treap {
-    Treap *l, *r;
-    int pri, subsize; char val; bool rev_valid;
-    Treap(int _val){
-        val = _val;
+    Treap *lc, *rc, *par;
+    int pri, siz;
+    bool rev_valid;
+    Info info;
+    Treap(Info info) : info(info) {
         pri = rand();
-        rev_valid = false;
-        l = r = nullptr;
-        subsize = 1;
+        lc = rc = par = nullptr;
+        siz = 1, rev_valid = false;
     }
-    void pull(){
-        subsize = 1;
-        for(auto i: {l,r})
-            if(i) subsize += i->subsize;
+    void pull() {
+        siz = 1;
+        for (auto c : {lc, rc}) {
+            if (!c) continue;
+            siz += c->siz;
+            c->par = this;
+            info.pull(c->info);
+        }
+    }
+    void push() {
+        if (rev_valid) {
+            swap(lc, rc);
+            if (lc) lc->rev_valid ^= 1;
+            if (rc) rc->rev_valid ^= 1;
+        }
+        rev_valid = false;
     }
 };
-void push(Treap *t){
-    if(!t) return;
-    if(t->rev_valid){
-        swap(t->l, t->r);
-        if(t->l) t->l->rev_valid ^= 1;
-        if(t->r) t->r->rev_valid ^= 1;
-    }
-    t->rev_valid = false;
-}
-int size(Treap *treap) {
-    if (treap == NULL) return 0;
-    return treap->subsize;
-}
-Treap *merge(Treap *a, Treap *b){
-    if(!a || !b) return a ? a : b;
-    push(a); push(b);
-    if(a->pri <= b->pri){
-        a->r = merge(a->r, b);
+template<class Info>
+int size(Treap<Info> *t) { return t ? t->siz : 0; }
+
+template<class Info>
+Treap<Info> *merge(Treap<Info> *a, Treap<Info> *b) {
+    if (!a || !b) return a ? a : b;
+    a->push(); b->push();
+    if (a->pri > b->pri) {
+        a->rc = merge(a->rc, b);
         a->pull();
         return a;
-    }
-    else {
-        b->l = merge(a, b->l);
+    } else {
+        b->lc = merge(a, b->lc);
         b->pull();
         return b;
     }
 }
-pair<Treap*, Treap*> split(Treap *root, int k) {
-	if (root == nullptr) return {nullptr, nullptr};
-    push(root);
-	if (size(root->l) < k) {
-		auto [a, b] = split(root->r, k - size(root->l) - 1);
-		root->r = a;
-		root->pull();
-		return {root, b};
-	} else {
-		auto [a, b] = split(root->l, k);
-		root->l = b;
-		root->pull();
-		return {a, root};
-	}
-}
-void Print(Treap *t){
-    if(t){
-        push(t);
-        Print(t->l);
-        cout << t->val;
-        Print(t->r);
+
+template<class Info>
+pair<Treap<Info>*, Treap<Info>*> split(Treap<Info> *t, int k) {
+    // 分割前 k 個在 first，剩下的在 second
+    if (t == nullptr) return {nullptr, nullptr};
+    t->push();
+    if (size(t->lc) < k) {
+        auto [a, b] = split(t->rc, k - size(t->lc) - 1);
+        t->rc = a;
+        t->pull();
+        if (b) b->par = nullptr;
+        return {t, b};
+    } else {
+        auto [a, b] = split(t->lc, k);
+        t->lc = b;
+        t->pull();
+        if (a) a->par = nullptr;
+        return {a, t};
     }
 }
-void solve(){
-    int n, m; cin >> n >> m;
-    Treap *root = nullptr;
+
+template<class Info>
+void printArray(Treap<Info> *t) {
+    if (!t) return;
+    t->push();
+    printArray(t->lc);
+    cout << t->info;
+    printArray(t->rc);
+}
+
+template<class Info, class F>
+int findFirst(Treap<Info> *t, F &&pred) { // 1-based
+    if (!pred(t->info)) return 0;
+    t->push();
+    if (!t->lc && !t->rc) return 1;
+    int ls = t->lc ? t->lc->siz : 0;
+    if (t->lc && pred(t->info)) return findFirst(t->lc, pred) + 1;
+    else return findFirst(t->rc, pred) + ls + 1;
+}
+
+struct Info {
+    char c;
+    void pull(const Info &ch) {
+        // min = std::min(min, ch.min);
+    }
+    friend ostream &operator<<(ostream &os, const Info &info) {
+        os << info.c << "";
+        return os;
+    }
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+    int n, m;
+    cin >> n >> m;
+    Treap<Info> *root = nullptr;
     string str; cin >> str;
     for(auto c : str){
-        root = merge(root, new Treap(c));
+        root = merge(root, new Treap<Info>({c}));
     }
-    rep(i, 1, m){
-        int x, y; cin >> x >> y;
-        if(x == y){
-            // Print(root); 
-            // continue;
-        }
-        auto [a, b] = split(root, x-1);
-        auto [c, d] = split(b, y-x+1);
+    for (int i = 0; i < m; i++) {
+        int x, y;
+        cin >> x >> y;
+        auto [a, b] = split(root, x - 1);
+        auto [c, d] = split(b, y - x + 1);
         c->rev_valid ^= true;
-        push(c);
-        b = merge(c, d);    // 1、3先河，2(中間)最後和放在最右邊
+        b = merge(c, d);
         root = merge(a, b);
     }
-    Print(root);
-}
-int main(){
-    IO;
-    solve();
+    printArray(root);
+    return 0;
 }

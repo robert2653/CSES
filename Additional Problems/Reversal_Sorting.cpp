@@ -3,116 +3,140 @@
 using namespace std;
 using ll = long long;
 
+template<class Info, class Tag = bool()>
 struct Treap {
-    Treap *lc, *rc;
-    int pri, siz; bool rev_valid;
-    int val; int min;
-    Treap(int val_) {
-        min = val = val_;
-        pri = rand();
-        lc = rc = nullptr;
-        siz = 1; rev_valid = 0;
+    vector<Info> info;
+    // vector<Tag> tag;
+    vector<int> siz, par, rev, pri;
+    vector<array<int, 2>> ch;
+    Treap(int n) : info(n + 1), siz(n + 1), par(n + 1),
+    rev(n + 1), pri(n + 1), ch(n + 1) {
+        tag.resize(n + 1);
+        for (int i = 1; i <= n; i++)
+            siz[i] = 1, pri[i] = rand();
     }
-    void pull() { // update siz or other information
-        siz = 1;
-        min = val;
-        for (auto c : {lc, rc}) {
-            if (!c) continue;
-            siz += c->siz;
-            min = std::min(min, c->min);
+    // void apply(int t, const Tag &v) {
+    //     info[t].apply(siz[t], v);
+    //     tag[t].apply(v);
+    // }
+    void push(int t) {
+        if (rev[t]) {
+            swap(ch[t][0], ch[t][1]);
+            if (ch[t][0]) rev[ch[t][0]] ^= 1;
+            if (ch[t][1]) rev[ch[t][1]] ^= 1;
+            rev[t] = 0;
+        }
+        // apply(ch[t][0], tag[t]);
+        // apply(ch[t][1], tag[t]);
+        // tag[t] = Tag();
+    }
+    void pull(int t) {
+        siz[t] = 1 + siz[ch[t][0]] + siz[ch[t][1]];
+        info[t].pull(info[ch[t][0]], info[ch[t][1]]);
+    }
+    int merge(int a, int b) {
+        if (!a || !b) return a ? a : b;
+        push(a), push(b);
+        if (pri[a] > pri[b]) {
+            ch[a][1] = merge(ch[a][1], b);
+            pull(a); return a;
+        } else {
+            ch[b][0] = merge(a, ch[b][0]);
+            pull(b); return b;
         }
     }
-    void push() {
-        if (rev_valid) {
-            swap(lc, rc);
-            if (lc) lc->rev_valid ^= 1;
-            if (rc) rc->rev_valid ^= 1;
+    pair<int, int> split(int t, int k) {
+        if (!t) return {0, 0};
+        push(t);
+        if (siz[ch[t][0]] < k) {
+            auto [a, b] = split(ch[t][1], k - siz[ch[t][0]] - 1);
+            ch[t][1] = a, pull(t);
+            return {t, b};
+        } else {
+            auto [a, b] = split(ch[t][0], k);
+            ch[t][0] = b, pull(t);
+            return {a, t};
         }
-        rev_valid = false;
     }
-    int find(int k) { // 找到 min 是 k 的位置 (1-based)
-        push();
-        int ls = (lc ? lc->siz : 0) + 1;
-        if (val == k) return ls;
-        if (lc && lc->min == k) return lc->find(k);
-        else return rc->find(k) + ls;
+    template<class F>   // 尋找區間內，第一個符合條件的
+    int findFirst(int t, F &&pred) {
+        if (!t) return 0;
+        push(t);
+        if (!pred(info[t])) return 0;
+        int idx = findFirst(ch[t][0], pred);
+        if (!idx) idx = 1 + siz[ch[t][0]] + findFirst(ch[t][1], pred);
+        return idx;
+    }
+    int getPos(int rt, int t) { // get t's index in array
+        int res = siz[t] + 1;
+        while (t != rt) {
+            int p = par[t];
+            if (ch[p][1] == t) res += siz[ch[p][0]] + 1;
+            t = p;
+        }
+        return res;
+    }
+    void getArray(int t, vector<Info> &a) {
+        if (!t) return;
+        push(t);
+        getArray(ch[t][0], a);
+        a.push_back(info[t]);
+        getArray(ch[t][1], a);
     }
 };
-int size(Treap *t) {
-    return t ? t->siz : 0;
-}
-Treap *merge(Treap *a, Treap *b) {
-    if (!a || !b) return a ? a : b;
-    a->push(); b->push();
-    if (a->pri > b->pri) {
-        a->rc = merge(a->rc, b);
-        a->pull();
-        return a;
+struct Tag {
+    int setVal;
+    ll add;
+    void apply(const Tag &t) {
+        if (t.setVal) {
+            setVal = t.setVal;
+            add = t.add;
+        } else {
+            add += t.add;
+        }
     }
-    else {
-        b->lc = merge(a, b->lc);
-        b->pull();
-        return b;
+};
+struct Info {
+    int val;
+    int mn = 1E9;
+    void apply(int siz, const Tag &t) {
     }
-}
-pair<Treap*, Treap*> split(Treap *t, int k) {
-    // 分割前 k 個在 first，剩下的在 second
-	if (t == nullptr) return {nullptr, nullptr};
-    t->push();
-	if (size(t->lc) < k) {
-		auto [a, b] = split(t->rc, k - size(t->lc) - 1);
-		t->rc = a;
-		t->pull();
-		return {t, b};
-	}
-    else {
-		auto [a, b] = split(t->lc, k);
-		t->lc = b;
-		t->pull();
-		return {a, t};
-	}
-}
-void Print(Treap *t) {
-    if (!t) return;
-    t->push();
-    Print(t->lc);
-    cout << t->val;
-    Print(t->rc);
-}
-
-void solve() {
-    int n; cin >> n;
-    Treap *t = nullptr;
-    for (int i = 0; i < n; i++) {
-        int x; cin >> x;
-        t = merge(t, new Treap(x));
+    void pull(const Info &l, const Info &r) {
+        mn = min({val, l.mn, r.mn});
     }
-    vector<pair<int, int>> ans;
-    for (int i = 0; i < n; i++) {
-        int pos = t->find(i + 1);
-        Treap *l, *m, *r;
-
-        auto res = split(t, pos);
-        m = res.first; r = res.second;
-
-        res = split(m, pos - 1);
-        l = res.first;
-        // m 是那個 i 點，直接捨棄掉
-
-        if (l) l->rev_valid ^= 1;
-        t = merge(l, r);
-        ans.emplace_back(i + 1, pos + i);
-    }
-    cout << ans.size() << "\n";
-    for (auto [i, j] : ans) cout << i << " " << j << "\n";
-}
+};
 
 int main() {
     ios_base::sync_with_stdio(false);
     cin.tie(nullptr);
-    int t = 1;
-    // cin >> t;
-    while (t--) {
-        solve();
+
+    int n;
+    cin >> n;
+    Treap<Info> tr(n);
+    int rt = 0;
+    for (int i = 0; i < n; i++) {
+        int x;
+        cin >> x;
+        tr.info[i + 1] = {x, x};
+        rt = tr.merge(rt, i + 1);
     }
+    vector<pair<int, int>> ans;
+    for (int i = 0; i < n; i++) {
+        int pos = tr.findFirst(rt, [&](Info info) {
+            return info.mn <= i + 1;
+        });
+
+        int l, m, r;
+        tie(l, r) = tr.split(rt, pos - 1);
+        tie(m, r) = tr.split(r, 1);
+        tr.rev[l] ^= 1;
+        rt = tr.merge(l, r);
+        ans.emplace_back(i + 1, pos + i);
+    }
+    cout << ans.size() << "\n";
+    for (auto [l, r] : ans) {
+        cout << l << " " << r << "\n";
+    }
+
+    return 0;
 }
