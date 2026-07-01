@@ -1,117 +1,96 @@
 #include <bits/stdc++.h>
-using namespace std;
-#define int long long
-const int maxn = 2e5 + 5;
 
-typedef struct {
-    int set_val; int sum; int add;
-} node;
-int n, q; 
-vector<node> tree;
-vector<int> nums;
-// Pull
-void pull(int now){  // update now with 2 children
-    tree[now].sum = tree[2 * now].sum + tree[2 * now + 1].sum;
-}
-// Lazy
-void push(int now, int l, int r){
-    if(tree[now].set_val){
-        tree[now].sum = (r - l + 1) * tree[now].set_val;
+using namespace std;
+using ll = long long;
+
+mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
+template<class T> void chmin(T &a, const T &b) { if (a > b) a = b; }
+template<class T> void chmax(T &a, const T &b) { if (a < b) a = b; }
+
+template<class Info> struct SegmentTree {
+    int n;
+    vector<Info> info;
+    SegmentTree(int n) : n(n), info(4 << __lg(n)) {}
+    SegmentTree(const vector<Info> &v) : n(v.size()), info(4 << __lg(n)) {
+        auto build = [&](auto &&self, int l, int r, int p) {
+            if (r - l == 1) {
+                info[p] = v[l];
+                return;
+            }
+            int m = (l + r) / 2;
+            self(self, l, m, 2 * p);
+            self(self, m, r, 2 * p + 1);
+            pull(p);
+        };
+        build(build, 0, n, 1);
     }
-    tree[now].sum += (r - l + 1) * tree[now].add;
-    if(l != r){
-        if(tree[now].set_val){
-            tree[2 * now].set_val = tree[now].set_val;
-            tree[2 * now + 1].set_val = tree[now].set_val;
-            tree[2 * now].add = tree[now].add;
-            tree[2 * now + 1].add = tree[now].add;
+    void pull(int p) { info[p] = info[2 * p] + info[2 * p + 1]; }
+    void add(int x, const Info &i) { add(x, i, 0, n, 1); }
+    void add(int x, const Info &i, int l, int r, int p) {
+        if (r - l == 1) {
+            info[p] += i;
+            return;
         }
-        else {
-            tree[2 * now].add += tree[now].add;
-            tree[2 * now + 1].add += tree[now].add;
-        }
+        int m = (l + r) / 2;
+        if (x < m) add(x, i, l, m, 2 * p);
+        else add(x, i, m, r, 2 * p + 1);
+        pull(p);
     }
-    tree[now].add = 0; tree[now].set_val = 0;
+    Info query(int ql, int qr) { return query(ql, qr, 0, n, 1); } 
+    Info query(int ql, int qr, int l, int r, int p) {
+        if (qr <= l || ql >= r) return Info();
+        if (ql <= l && r <= qr) return info[p];
+        int m = (l + r) / 2;
+        return query(ql, qr, l, m, 2 * p) + query(ql, qr, m, r, 2 * p + 1);
+    }
+    template<class F> int findFirst(int ql, int qr, F &&f) {
+        return findFirst(ql, qr, f, 0, n, 1);
+    } // 若要找 last，先右子樹遞迴即可
+    template<class F> int findFirst(int ql, int qr, F &&f, int l, int r, int p) {
+        if (qr <= l || ql >= r) return -1;
+        if (ql <= l && r <= qr && !f(info[p])) return -1;
+        if (r - l == 1) return l;
+        int m = (l + r) / 2;
+        int res = findFirst(ql, qr, f, l, m, 2 * p);
+        if (res == -1) res = findFirst(ql, qr, f, m, r, 2 * p + 1);
+        return res;
+    }
+};
+struct Info {
+    int mx = 0;
+    Info &operator+=(const Info &rhs) & {
+        mx += rhs.mx;
+        return *this;
+    }
+};
+Info operator+(const Info &a, const Info &b) {
+    Info c;
+    c.mx = max(a.mx, b.mx);
+    return c;
 }
-// Build
-void build(int L, int R, int now){
-    if(L == R){
-        tree[now].sum = nums[L];
-        tree[now].set_val = tree[now].add = 0;
-        return;
-    }
-    int M = (L + R) >> 1;
-    build(L, M, now * 2);
-    build(M + 1, R, now * 2 + 1);
-    pull(now);
-}
-// modify
-void modify_add(int l, int r, int L, int R, int now, int add){
-    if(R < l || r < L) // invalid range
-        return;
-    if(l <= L && R <= r){
-        tree[now].add += add;
-        return;
-    }
-    push(now, L, R);
-    int M = (L + R) >> 1;
-    modify_add(l, r, L, M, now * 2, add);
-    modify_add(l, r, M + 1, R, now * 2 + 1, add);
-    push(now * 2, L, M);
-    push(now * 2 + 1, M + 1, R);
-    pull(now);  // update now with 2 children
-}
-void modify_set(int l, int r, int L, int R, int now, int val){
-    if(R < l || r < L) // invalid range
-        return;
-    if(l <= L && R <= r){
-        tree[now].set_val = val;
-        tree[now].add = 0;
-        return;
-    }
-    push(now, L, R);
-    int M = (L + R) >> 1;
-    modify_set(l, r, L, M, now * 2, val);
-    modify_set(l, r, M + 1, R, now * 2 + 1, val);
-    push(now * 2, L, M);
-    push(now * 2 + 1, M + 1, R);
-    pull(now);  // update now with 2 children
-}
-// query
-int query(int l, int r, int L, int R, int now){
-    int M = (L + R) >> 1;
-    if(R < l || r < L){
-        return 0;
-    }
-    push(now, L, R);
-    if(l <= L && R <= r){
-        return tree[now].sum;
-    }
-	return query(l, r, L, M, now * 2) + query(l, r, M + 1, R, now * 2 + 1);
-}
-signed main(){
+
+int main() {
     ios::sync_with_stdio(false);
-    cin.tie(0);
-    int q; cin >> n >> q;
-    tree.resize(4 * n + 1);
-    nums.resize(n + 1);
-    for(int i = 1; i <= n; i++){
-        cin >> nums[i];
+    cin.tie(nullptr);
+
+    int n, q;
+    cin >> n >> q;
+    vector<Info> a(n);
+    for (int i = 0; i < n; i++) {
+        cin >> a[i].mx;
     }
-    build(1, n, 1);
-    for(int i = 1; i <= q; i++){
-        int op; cin >> op;
-        if(op == 1){
-            int a, b, val; cin >> a >> b >> val;
-            modify_add(a, b, 1, n, 1, val);
-        }
-        else if(op == 2){
-            int a, b, val; cin >> a >> b >> val;
-            modify_set(a, b, 1, n, 1, val);
-        }
+    SegmentTree<Info> seg(a);
+    while (q--) {
+        int x;
+        cin >> x;
+        int p = seg.findFirst(0, n, [&](const Info &i) { return i.mx >= x; });
+        if (p == -1) cout << 0;
         else {
-            int a, b; cin >> a >> b;
-            cout << query(a, b, 1, n, 1) << endl;
+            cout << p + 1;
+            seg.add(p, {-x});
         }
+        cout << " \n"[q == 0];
     }
+    
+    return 0;
 }

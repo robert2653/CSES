@@ -1,59 +1,107 @@
 #include <bits/stdc++.h>
-#define all(x) (x).begin(), (x).end()
-#define pii pair<int, int> 
-#define endl "\n"
-#define int long long
+
 using namespace std;
-const int mod = 1e9 + 7;
-void init(vector<int> &mobius, int mx) {
-    mobius.resize(mx + 1, 0);
-    mobius[1] = 1;
-    vector<int> wei(mx + 1);  // wei = 0 代表是質數，-1 代表可被平方數整除
-    for (int i = 2; i <= mx; i++) {
-        if (wei[i] == -1) {
-            mobius[i] = 0;
-            continue; // 包含平方
+
+vector<int> minp, primes;
+vector<int> phi, mu, pnum; // 質因數種類數
+vector<int> mpnum, dnum; // 最小質因數的冪次數, 約數數量
+vector<int> powpref, dsum; // 約數和
+// dmul[i] = i ^ (dnum[i] / 2) for dnum[i] even
+// dmul[i] = k ^ dnum[i], k * k = i else
+void sieve(int n) {
+    minp.resize(n + 1);
+    phi.resize(n + 1);
+    mu.resize(n + 1);
+    pnum.resize(n + 1);
+    
+    mpnum.resize(n + 1);
+    dnum.resize(n + 1);
+    
+    powpref.resize(n + 1);
+    dsum.resize(n + 1);
+
+    phi[1] = mu[1] = 1;
+    dsum[1] = 1;
+    powpref[1] = dsum[1] = 1;
+    for (int i = 2; i <= n; i++) {
+        if (!minp[i]) {
+            minp[i] = i;
+            primes.push_back(i);
+
+            phi[i] = i - 1;
+            mu[i] = -1;
+            pnum[i] = 1;
+
+            mpnum[i] = 1;
+            dnum[i] = 2;
+
+            powpref[i] = i + 1;
+            dsum[i] = i + 1;
         }
-        if (wei[i] == 0) {
-            wei[i] = 1;
-            for (int j = 2; i * j <= mx; j++) {
-                if (j % i == 0) wei[i * j] = -1;
-                else if (wei[i * j] != -1) wei[i * j]++;
+        for (int p : primes) {
+            if (i * p > n) break;
+            minp[i * p] = p;
+            if (p == minp[i]) {
+                phi[i * p] = phi[i] * p;
+                mu[i * p] = 0;
+                pnum[i * p] = pnum[i];
+
+                mpnum[i * p] = mpnum[i] + 1;
+                dnum[i * p] = dnum[i] / mpnum[i * p] * (mpnum[i * p] + 1);
+
+                powpref[i * p] = powpref[i] * p + 1;
+                dsum[i * p] = dsum[i] / powpref[i] * powpref[i * p];
+                break;
+                // i * p = (p * x) * p
+                // i * q = (p * x) * q
+                // 到達 x * q 再用 p 篩掉就好
+            } else {
+                phi[i * p] = phi[i] * (p - 1);
+                mu[i * p] = -mu[i];
+                pnum[i * p] = pnum[i] + 1;
+
+                mpnum[i * p] = 1;
+                dnum[i * p] = dnum[i] * 2;
+
+                powpref[i * p] = p + 1;
+                dsum[i * p] = dsum[i] * (p + 1);
             }
         }
-        mobius[i] = wei[i] % 2 == 0 ? 1 : -1;
     }
 }
+// a ^ (m-1) = 1 (Mod m)
+// a ^ (m-2) = 1/a (Mod m)
+// exp2: cout << power(x, power(y, p, Mod - 1), Mod)
+// num = (x+1) * (y+1) * (z+1)...
+// sum = (a^0 + a^1+...+ a^x) * (b^0 +...+ b^y)
+// mul = N ^ ((x+1) * (y+1) * (z+1) / 2)
 
-void solve() {
-    int n; cin >> n;
-    vector<int> v(n), mobius;
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    cin >> n;
+    vector<int> v(n);
+    sieve(1E6);
     for (int i = 0; i < n; i++) {
         cin >> v[i];
     }
-    int mx = *max_element(all(v));
-    vector<int> p(mx + 1);
-    init(mobius, mx);
-    for (auto i : v) p[i]++;
+    int mx = *max_element(v.begin(), v.end());
+    vector<int> cnt(mx + 1);
+    for (int x : v) {
+        cnt[x]++;
+    }
     for (int i = 1; i <= mx; i++) {
-        for (int j = 2; i * j <= mx; j++) {
-            p[i] += p[i * j];
+        for (int j = i * 2; j <= mx; j += i) {
+            cnt[i] += cnt[j];
         }
     }
-    for (auto &x : p) x = x * (x - 1) / 2;
-    int ans = 0;
+    long long ans = 0;
     for (int i = 1; i <= mx; i++) {
-        ans += mobius[i] * p[i];
+        ans += 1LL * mu[i] * cnt[i] * (cnt[i] - 1) / 2;
     }
     cout << ans << "\n";
-}
- 
-signed main() {
-    ios_base::sync_with_stdio(false);
-    cin.tie(nullptr);
-    int t = 1;
-    // cin >> t;
-    while (t--) {
-        solve();
-    }
+
+    return 0;
 }

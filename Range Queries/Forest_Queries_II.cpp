@@ -1,69 +1,74 @@
-// 2D-BIT // Forest Queries (Area)
 #include <bits/stdc++.h>
+
 using namespace std;
 using ll = long long;
-int n;
-int iiBIT[1005][1005], tree[1005][1005];
-void modify(int x, int y, int mod){
-    for(; x <= n; x += (x&-x)){
-        for(int tmp = y; tmp <= n; tmp += (tmp&-tmp)){
-            iiBIT[x][tmp] += mod;
+
+mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
+template<class T> void chmin(T &a, const T &b) { if (a > b) a = b; }
+template<class T> void chmax(T &a, const T &b) { if (a < b) a = b; }
+
+// 樹套樹，寫兩層 zkw
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, q;
+    cin >> n >> q;
+    vector<vector<int>> g(n, vector<int>(n));
+    for (int i = 0; i < n; i++) {
+        string s;
+        cin >> s;
+        for (int j = 0; j < n; j++) {
+            g[i][j] = s[j] == '*';
         }
     }
-}
-ll query(int x1, int y1, int x2, int y2){
-    ll ans = 0;
-    x1--, y1--;
-    int tmp1, tmp2;
+
+    vector<vector<int>> a(n * 2, vector<int>(n * 2));
+    auto add = [&](vector<int> &a, int x, int i) -> void {
+        a[x += n] += i;
+        for (x /= 2; x; x /= 2) a[x] = a[2 * x] + a[2 * x + 1];
+    };
+    auto add2 = [&](int y, int x, int i) -> void {
+        for (y += n; y; y /= 2) add(a[y], x, i);
+    };
+    auto query = [&](vector<int> &a, int l, int r) -> int {
+        int x = 0, y = 0;
+        for (l += n, r += n; l < r; l /= 2, r /= 2) {
+            if (l & 1) x = x + a[l++];
+            if (r & 1) y = a[--r] + y;
+        }
+        return x + y;
+    };
+    auto query2 = [&](int l, int r, int l2, int r2) -> int {
+        int x = 0, y = 0;
+        for (l += n, r += n; l < r; l /= 2, r /= 2) {
+            if (l & 1) x = x + query(a[l++], l2, r2);
+            if (r & 1) y = query(a[--r], l2, r2) + y;
+        }
+        return x + y;
+    };
+
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            if (g[i][j]) add2(i, j, 1);
+        }
+    }
+    while (q--) {
+        int op;
+        cin >> op;
+        if (op == 1) {
+            int y, x;
+            cin >> y >> x;
+            y--;
+            x--;
+            add2(y, x, (g[y][x] ^= 1) ? 1 : -1);
+        } else {
+            int y1, x1, y2, x2;
+            cin >> y1 >> x1 >> y2 >> x2;
+            cout << query2(y1 - 1, y2, x1 - 1, x2) << "\n";
+        }
+    }
     
-    for(tmp1 = x2; tmp1; tmp1 -= (tmp1&-tmp1)){
-        for(tmp2 = y2; tmp2; tmp2 -= tmp2&-tmp2){
-            ans += iiBIT[tmp1][tmp2];
-        }
-    }
-    for(tmp1 = x1; tmp1; tmp1 -= (tmp1&-tmp1)){
-        for(tmp2 = y2; tmp2; tmp2 -= tmp2&-tmp2){
-            ans -= iiBIT[tmp1][tmp2];
-        }
-    }
-    for(tmp1 = x2; tmp1; tmp1 -= (tmp1&-tmp1)){
-        for(tmp2 = y1; tmp2; tmp2 -= tmp2&-tmp2){
-            ans -= iiBIT[tmp1][tmp2];
-        }
-    }
-    for(tmp1 = x1; tmp1; tmp1 -= (tmp1&-tmp1)){
-        for(tmp2 = y1; tmp2; tmp2 -= tmp2&-tmp2){
-            ans += iiBIT[tmp1][tmp2];
-        }
-    }
-    return ans;
-}
-int main(){
-	ios::sync_with_stdio(0);
-	cin.tie(nullptr);
-	int q; 
-	cin >> n >> q;
-    for(int i = 1; i <= n; i++){
-        for(int j = 1; j <= n; j++){
-            char t; cin >> t;
-            if(t == '*'){
-                modify(i, j, 1);
-                tree[i][j]++;
-            }
-        }
-    }
-    for(int i = 1; i <= q; i++){
-        int op; cin >> op;
-        if(op == 1){
-            int y, x; cin >> y >> x;
-            int mod = tree[y][x] ? -1 : 1;
-            tree[y][x] = !tree[y][x];
-            modify(y, x, mod);
-        }
-        else {
-            int y1, x1, y2, x2; cin >> y1 >> x1 >> y2 >> x2;
-            cout << query(y1, x1, y2, x2) << "\n";
-        }
-            
-    }
+    return 0;
 }

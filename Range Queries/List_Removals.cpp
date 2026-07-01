@@ -1,98 +1,63 @@
 #include <bits/stdc++.h>
+
 using namespace std;
-#define all(x) (x).begin(), (x).end()
-#define endl "\n"
-#define rep(i, st, n) for(int i = st; i < n; i++)
-#define sz size()
-#define pb(x) push_back(x)
-#define ppb pop_back()
-#define IO ios_base::sync_with_stdio(0); cin.tie(0);
-#define init(x) memset(x, 0, sizeof(x));
-#define lp 2*now
-#define rp 2*now+1
-typedef long long int ll;
-typedef pair<int, int> pii;
-typedef vector<int> vi;
-typedef vector<pii> vii;
-typedef struct{
-    int from; int to;
-    ll weight;
-} edge;
-const ll inf = 1LL << 62;
-const int intf = INT_MAX;
-const int maxn = 2e5+5;
-int n, q;
-int nums[maxn];
-int tree[maxn*4];
-bool used[maxn];
-int mod;
-void query(int pos, int L, int R, int now){
-    if(L == R){
-        mod += tree[now];
-        return;
+using ll = long long;
+
+mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
+template<class T> void chmin(T &a, const T &b) { if (a > b) a = b; }
+template<class T> void chmax(T &a, const T &b) { if (a < b) a = b; }
+
+template<class T> struct Fenwick {
+    int n; vector<T> a;
+    Fenwick(int n) : n(n), a(n) {}
+    void add(int x, const T &v) {
+        for (int i = x + 1; i <= n; i += i & -i)
+            a[i - 1] = a[i - 1] + v;
     }
-    int M = (L+R) / 2;
-    if(L <= pos && pos <= R){
-        mod += tree[now];
+    T sum(int x) {
+        T ans{};
+        for (int i = x; i > 0; i -= i & -i)
+            ans = ans + a[i - 1];
+        return ans;
     }
-    if(pos <= M){
-        query(pos, L, M, lp);
+    T rangeSum(int l, int r) {
+        return sum(r) - sum(l);
     }
-    else {
-        query(pos, M+1, R, rp);
-    }
-}
-void modify(int l, int r, int L, int R, int now){
-    if(l <= L && R <= r){
-        tree[now]++;
-        return;
-    }
-    int M = (L+R) / 2;
-    if(r <= M){
-        modify(l, r, L, M, lp);
-    }
-    else if(M < l){
-        modify(l, r, M+1, R, rp);
-    }
-    else {
-        modify(l, r, L, M, lp);
-        modify(l, r, M+1, R, rp);
-    }
-}
-bool check(int pos, int fin){
-    mod = 0;
-    query(pos, 1, n, 1);
-    if(pos - mod >= fin) return true;
-    else return false;
-}
-int binary(int fin){    // 在ans前有query(ans)被選過，而ans-mod == pos
-    int L = -1, R = n;
-    while(L <= R){
-        int M = (L+R) / 2;
-        if(check(M, fin)){
-            R = M-1;
+    int select(const T &k, int start = 0) {
+        // 找到最小的 x, 使得 sum(x + 1) - sum(start) > k
+        // prefix sum 要有單調性
+        int x = 0; T cur = -sum(start);
+        for (int i = 1 << __lg(n); i; i /= 2) {
+            if (x + i <= n && cur + a[x + i - 1] <= k) {
+                x += i;
+                cur = cur + a[x - 1];
+            }
         }
-        else L = M+1;
+        return x;
     }
-    return L;
-}
-void solve(){
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
     cin >> n;
-    init(used);
-    rep(i, 1, n+1){
-        cin >> nums[i];
+    vector<int> a(n);
+    for (int i = 0; i < n; i++) {
+        cin >> a[i];
     }
-    rep(i, 1, n+1){
-        int pos; cin >> pos;
-        int ans = binary(pos);
-        cout << nums[ans] << endl;
-        modify(ans, n, 1, n, 1);
-        // rep(j, q, 4*n){
-        //     cout << j << ":" << tree[j] << endl;
-        // }
+    Fenwick<int> fenwick(n);
+    for (int i = 0; i < n; i++) {
+        fenwick.add(i, 1);
     }
-}
-int main(){
-    IO;
-    solve();
+    for (int i = 0; i < n; i++) {
+        int x;
+        cin >> x;
+        int idx = fenwick.select(x - 1);
+        cout << a[idx] << " \n"[i == n - 1];
+        fenwick.add(idx, -1);
+    }
+    
+    return 0;
 }

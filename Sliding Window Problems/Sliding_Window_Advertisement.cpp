@@ -5,43 +5,60 @@ using ll = long long;
 
 // 應用: dp(i) = h(i) + min/max(A(j)X(i) + B(j)), for j ≤ r(i)
 //        y    =  c   +          m  x   +   b
-constexpr ll inf = 4E18;
-struct Line {
-    ll m, b;
-    Line(ll m = 0, ll b = -inf) : m(m), b(b) {}
-    ll eval(ll x) { return m * x + b; }
-};
-struct LiChaoSeg { // 取 max 再變換就好
-    int n; vector<Line> info;
-    LiChaoSeg(int n) : n(n), info(4 << __lg(n), Line()) {}
-    void addLine(Line line) { update(line, 1, 0, n); }
-    void rangeAddLine(Line line, int ql, int qr) { rangeUpdate(line, 1, 0, n, ql, qr); }
-    ll query(int x) { return query(x, 1, 0, n); }
+template<class T, class F = less<ll>>
+struct LiChaoSeg {
+    F cmp = F();
+    static const T inf = max(numeric_limits<T>::lowest() / 2, numeric_limits<T>::max() / 2, F());
+    struct Line {
+        T m, b;
+        Line(T m = 0, T b = inf) : m(m), b(b) {}
+        T eval(T x) const { return m * x + b; }
+    };
+    struct Node {
+        Line line;
+        ll l = -1, r = -1;
+    };
+    ll n;
+    vector<Node> nd;
+    LiChaoSeg(ll n) : n(n) { newNode(); }
+    void addLine(Line line) { update(0, 0, n, line); }
+    void rangeAddLine(Line line, ll ql, ll qr) { rangeUpdate(0, 0, n, ql, qr, line); }
+    T query(ll x) { return query(x, 0, 0, n); }
 private:
-    void update(Line line, int p, int l, int r) {
-        int m = (l + r) / 2;
-        bool left = line.eval(l) > info[p].eval(l);
-        bool mid = line.eval(m) > info[p].eval(m);
-        if (mid) swap(info[p], line); // 如果新線段比較好
+    int newNode() {
+        nd.emplace_back();
+        return nd.size() - 1;
+    }
+    void update(int p, ll l, ll r, Line line) {
+        ll m = (l + r) / 2;
+        bool left = cmp(line.eval(l), nd[p].line.eval(l));
+        bool mid = cmp(line.eval(m), nd[p].line.eval(m));
+        if (mid) swap(nd[p].line, line);
         if (r - l == 1) return;
-        else if (left != mid) update(line, 2 * p, l, m); // 代表左半有交點
-        else update(line, 2 * p + 1, m, r); // 代表如果有交點一定在右半
+        if (left != mid) {
+            if (nd[p].l == -1) nd[p].l = newNode();
+            update(nd[p].l, l, m, line);
+        } else {
+            if (nd[p].r == -1) nd[p].r = newNode();
+            update(nd[p].r, m, r, line);
+        }
     }
-    void rangeUpdate(Line line, int p, int l, int r, int ql, int qr) {
-        if (l >= qr || r <= ql) return;
-        if (l >= ql && r <= qr) return update(line, p, l, r);
-        int m = (l + r) / 2;
-        rangeUpdate(line, 2 * p, l, m, ql, qr);
-        rangeUpdate(line, 2 * p + 1, m, r, ql, qr);
+    void rangeUpdate(int p, ll l, ll r, ll ql, ll qr, Line line) {
+        if (r <= ql || l >= qr) return;
+        if (ql <= l && r <= qr) return update(p, l, r, line);
+        if (nd[p].l == -1) nd[p].l = newNode();
+        if (nd[p].r == -1) nd[p].r = newNode();
+        ll m = (l + r) / 2;
+        rangeUpdate(nd[p].l, l, m, ql, qr, line);
+        rangeUpdate(nd[p].r, m, r, ql, qr, line);
     }
-    ll query(int x, int p, int l, int r) {
-        if (r - l == 1) return info[p].eval(x);
-        int m = (l + r) / 2;
-        if (x < m) return max(info[p].eval(x), query(x, 2 * p, l, m));
-        else return max(info[p].eval(x), query(x, 2 * p + 1, m, r));
+    T query(ll x, int p, ll l, ll r) {
+        if (p == -1) return inf;
+        ll m = (l + r) / 2;
+        if (x < m) return min(nd[p].line.eval(x), query(x, nd[p].l, l, m), cmp);
+        else return min(nd[p].line.eval(x), query(x, nd[p].r, m, r), cmp);
     }
 };
-
 template<class T, class F = less<T>>
 struct RMQ { // [l, r)
     int n;
@@ -72,8 +89,8 @@ struct RMQ { // [l, r)
 // = max(i * stk[j].second - (stk[j].first - 1) * stk[j].second)
 //       x *    m          -                    c
 int main() {
-    // ios::sync_with_stdio(false);
-    // cin.tie(nullptr);
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
 
     int n, k;
     cin >> n >> k;
@@ -82,41 +99,7 @@ int main() {
         cin >> a[i];
     }
     RMQ<int> rmq(a);
-    LiChaoSeg seg(n);
-    // deque<pair<int, int>> dq;
-    // for (int i = 0; i < n; i++) {
-    //     int l = i;
-    //     while (!dq.empty() && dq.back().second >= a[i]) {
-    //         auto [L, H] = dq.back();
-    //         l = L;
-    //         dq.pop_back();
-    //     }
-    //     l = max(l, i - k + 1);
-    //     // if (!dq.empty()) {
-    //     //     int l = max(dq.back().first, i - k + 1);
-    //     //     seg.rangeAddLine({dq.back().second, -1LL * (l - 1) * dq.back().second}, l, i + 1);
-    //     //     // cerr << "i = " << i << ", m = " << dq.back().second << ", c = " << -1LL * (l - 1) * dq.back().second << ", l = " << l << "\n";
-    //     // }
-    //     dq.emplace_back(l, a[i]);
-    //     seg.rangeAddLine({a[i], -1LL * (l - 1) * a[i]}, l, i + 1);
-    //     int lo = i, hi = n - 1;
-    //     while (lo < hi) {
-    //         int m = (lo + hi + 1) / 2;
-    //         if (a[m] >= a[i]) {
-    //             lo = m;
-    //         } else {
-    //             hi = m - 1;
-    //         }
-    //     }
-    //     seg.rangeAddLine({0, 1LL * (i - l + 1) * a[i]}, i, l + k);
-    //     // seg.rangeAddLine({-a[i], 1LL * (i - l + 1) * a[i] + 1LL * a[i] * (l + k - 1)}, l + k - 1, n);
-    //     seg.rangeAddLine({-a[i], 1LL * (i + k) * a[i]}, l + k - 1, n);
-    //     cerr << "i = " << i << ", m = " << a[i] << ", c = " << -1LL * (l - 1) * a[i] << ", l = " << l << "\n";
-    //     if (i >= k - 1) {
-    //         cout << seg.query(i) << " \n"[i == n - 1];
-    //     }
-    // }
-
+    LiChaoSeg<ll, greater<>> seg(n);
     for (int i = 0; i < n; i++) {
         int x = a[i];
         // >= x 的左界跟右界

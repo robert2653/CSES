@@ -1,126 +1,101 @@
 #include <bits/stdc++.h>
+
 using namespace std;
-#define all(x) (x).begin(), (x).end()
-#define endl "\n"
-#define rep(i, st, n) for(int i = st; i < n; i++)
-#define sz size()
-#define pb(x) push_back(x)
-#define ppb pop_back()
-#define IO ios_base::sync_with_stdio(0); cin.tie(0);
-#define init(x) memset(x, 0, sizeof(x));
-#define lp 2*now
-#define rp 2*now+1
-typedef long long int ll;
-typedef pair<int, int> pii;
-typedef vector<int> vi;
-typedef vector<pii> vii;
-typedef struct{
-    int from; int to;
-    ll weight;
-} edge;
-const ll inf = 1LL << 62;
-const int intf = INT_MAX;
-const int maxn = 2e5+5;
-int n, q;
-int bucket[10000005];
-int tree[40000020];
-map<int, int> brute;
-int ans;
-vector<int> sal(maxn);
-int bucket_no(int val){
-    if(!(val%100)) val--;
-    return (val/100+1);
-}
-void build(int L, int R, int now){
-    if(L == R){
-        tree[now] = bucket[L];
-        return;
+using ll = long long;
+
+mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
+template<class T> void chmin(T &a, const T &b) { if (a > b) a = b; }
+template<class T> void chmax(T &a, const T &b) { if (a < b) a = b; }
+
+template<class Info> struct SegmentTreeDynamic {
+    struct Node {
+        Info info = Info();
+        int lc = 0, rc = 0;
+    };
+    int n, rt;
+    vector<Node> nd;
+    SegmentTreeDynamic(int n) : n(n), rt(0), nd(1) {}
+    int generate() {
+        nd.emplace_back();
+        return nd.size() - 1;
     }
-    int M = (L+R) / 2;
-    build(L, M, lp);
-    build(M+1, R, rp);
-    tree[now] = tree[lp] + tree[rp];
-}
-void query(int l, int r, int L, int R, int now){
-    if(l <= L && R <= r){
-        ans += tree[now];
-        return;
-    }
-    int M = (L+R) / 2;
-    if(r <= M){
-        query(l, r, L, M, lp);
-    }
-        
-    else if(M < l){
-        query(l, r, M+1, R, rp);
-    }
-    else {
-        query(l, r, L, M, lp);
-        query(l, r, M+1, R, rp);
-    }
-}
-void modify(int pos, int L, int R, int now){
-    if(L == R){
-        tree[now] = bucket[L];
-        return;
-    }
-    int M = (L+R) / 2;
-    if(pos <= M) modify(pos, L, M, lp);
-    else modify(pos, M+1, R, rp);
-    tree[now] = tree[lp] + tree[rp];
-}
-void solve(){
-    init(tree);
-    init(bucket);
-    rep(i, 1, n+1){
-        int tmp; cin >> tmp;
-        bucket[bucket_no(tmp)]++; // 1~100, 101~200, 201~300
-        brute[tmp]++;             //  1       2       3
-        sal[i] = tmp;
-    }
-    build(1, 10000000, 1);
-    rep(i, 1, q+1){
-        char op; cin >> op;
-        if(op == '!'){
-            int pos, val; cin >> pos >> val;
-            int ori = sal[pos];
-            sal[pos] = val;
-            brute[ori]--; brute[val]++;
-            bucket[bucket_no(ori)]--;
-            bucket[bucket_no(val)]++;
-            modify(bucket_no(ori), 1, 10000000, 1);
-            modify(bucket_no(val), 1, 10000000, 1);
+    void pull(int p) { nd[p].info = nd[nd[p].lc].info + nd[nd[p].rc].info; }
+    void add(int x, const Info &i) { rt = add(x, i, 0, n, rt); }
+    int add(int x, const Info &i, int l, int r, int p) {
+        if (p == 0) p = generate();
+        if (r - l == 1) {
+            nd[p].info = nd[p].info + i;
+            return p;
         }
-        else {
-            ans = 0;
-            int l, r; cin >> l >> r;
-            int lno = bucket_no(l)+1, rno = bucket_no(r)-1;
-            if(lno <= rno){
-                query(lno, rno, 1, 10000000, 1);
-                auto it = brute.lower_bound(l);
-                while(it != brute.end() && it->first <= (lno-1)*100){
-                    ans += it->second;
-                    it++;
-                }
-                it = brute.lower_bound(rno*100+1);
-                while(it != brute.end() && it->first <= r){
-                    ans += it->second;
-                    it++;
-                }
-            }
-            else {
-                auto it = brute.lower_bound(l);
-                while(it != brute.end() && it->first <= r){
-                    ans += it->second;
-                    it++;
-                }
-            }
-            cout << ans << endl;
+        int m = (l + r) / 2;
+        if (x < m) {
+            int y = add(x, i, l, m, nd[p].lc);
+            nd[p].lc = y;
+        } else {
+            int y = add(x, i, m, r, nd[p].rc);
+            nd[p].rc = y;
         }
+        pull(p);
+        return p;
     }
+    Info query(int ql, int qr) { return query(ql, qr, 0, n, rt); }
+    Info query(int ql, int qr, int l, int r, int p) {
+        if (l >= qr || r <= ql || p == 0) return Info();
+        if (ql <= l && r <= qr) return nd[p].info;
+        int m = (l + r) / 2;
+        return query(ql, qr, l, m, nd[p].lc) + query(ql, qr, m, r, nd[p].rc);
+    }
+    template<class T> int findFirst(int ql, int qr, T &&f) { return findFirst(ql, qr, f, 0, n, rt); }
+    template<class T> int findFirst(int ql, int qr, T &&f, int l, int r, int p) {
+        if (l >= qr || r <= ql || p == 0 || !f(nd[p].info)) return -1;
+        if (r - l == 1) return l;
+        int m = (l + r) / 2;
+        int res = findFirst(ql, qr, f, l, m, nd[p].lc);
+        if (res != -1) return res;
+        return findFirst(ql, qr, f, m, r, nd[p].rc);
+    }
+};
+struct Info {
+    int sum = 0;
+};
+Info operator+(const Info &a, const Info &b) {
+    Info c;
+    c.sum = a.sum + b.sum;
+    return c;
 }
-int main(){
-    IO;
+
+const int N = 1E9;
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, q;
     cin >> n >> q;
-    solve();
+    vector<int> a(n);
+    SegmentTreeDynamic<Info> seg(N);
+    for (int i = 0; i < n; i++) {
+        cin >> a[i];
+        a[i]--;
+        seg.add(a[i], {1});
+    }
+    while (q--) {
+        char op;
+        cin >> op;
+        if (op == '!') {
+            int k, x;
+            cin >> k >> x;
+            k--;
+            x--;
+            seg.add(a[k], {-1});
+            seg.add(x, {1});
+            a[k] = x;
+        } else {
+            int l, r;
+            cin >> l >> r;
+            l--;
+            cout << seg.query(l, r).sum << "\n";
+        }
+    }
+    
+    return 0;
 }

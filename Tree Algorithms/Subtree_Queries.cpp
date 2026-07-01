@@ -3,34 +3,39 @@
 using namespace std;
 using ll = long long;
  
-struct Tag {
-    void apply(const Tag &v) {}
-};
+// 有用到 pathApply 才需要 apply 有關的
 struct Info {
-    int siz = 0;
-    ll val = 0, sum = 0;
-    void apply(const Tag &v) {}
+    int siz = 0, vsiz = 0, psiz = 0; // 真實子樹大小, 虛子樹大小, 實鏈長度
+    ll val = 0, sum = 0, vsum = 0, psum = 0;
     void pull(const Info &l, const Info &r) {
-        siz = 1 + l.siz + r.siz;
-        sum = l.sum + r.sum + val;
+        psiz = 1 + l.psiz + r.psiz;
+        siz = 1 + l.siz + r.siz + vsiz;
+        psum = (l.psum + r.psum + val);
+        sum = (l.sum + r.sum + val + vsum);
     }
-    Info &operator+=(const Info& i) {
-        siz += i.siz;
-        sum += i.sum;
-        return *this;
+    void modify(const Info &i) { // 才不會蓋掉 vsum, vsiz
+        val = i.val;
     }
-    Info &operator-=(const Info& i) {
-        siz -= i.siz;
-        sum -= i.sum;
-        return *this;
+    void operator+=(const Info &v) { // 將實邊轉虛邊時加上資訊
+        vsiz += v.siz;
+        vsum = (vsum + v.sum);
+    }
+    void operator-=(const Info &v) { // 將虛邊轉實邊時扣除資訊
+        vsiz -= v.siz;
+        vsum = (vsum - v.sum);
+    }
+    Info asSubtree() const { // 當前節點作為 Virtual Subtree 根時的狀態
+        Info res;
+        res.siz = vsiz + 1;
+        res.sum = (vsum + val);
+        return res;
     }
 };
 struct LinkCutTree { // 1-based
-    vector<Info> info, pathInfo, subtreeInfo;
-    vector<Tag> tag;
+    vector<Info> info;
     vector<array<int, 2>> ch;
     vector<int> p, rev;
-    LinkCutTree(int n) : info(n + 1), pathInfo(n + 1), subtreeInfo(n + 1), tag(n + 1), ch(n + 1), p(n + 1), rev(n + 1) {}
+    LinkCutTree(int n) : info(n + 1), ch(n + 1), p(n + 1), rev(n + 1) {}
     bool isrt(int x) {
         return ch[p[x]][0] != x && ch[p[x]][1] != x;
     }
@@ -38,29 +43,20 @@ struct LinkCutTree { // 1-based
         return ch[p[x]][1] == x;
     }
     void applyRev(int x) {
+        if (!x) return;
         swap(ch[x][0], ch[x][1]);
         rev[x] ^= 1;
     }
-    void apply(int x, const Tag &v) {
-        info[x].apply(v);
-        pathInfo[x].apply(v);
-        tag[x].apply(v);
-    }
     void push(int x) {
         if (rev[x]) {
-            if (ch[x][0]) applyRev(ch[x][0]);
-            if (ch[x][1]) applyRev(ch[x][1]);
+            applyRev(ch[x][0]);
+            applyRev(ch[x][1]);
             rev[x] = 0;
         }
-        if (ch[x][0]) apply(ch[x][0], tag[x]);
-        if (ch[x][1]) apply(ch[x][1], tag[x]);
-        tag[x] = Tag();
     }
     void pull(int x) {
         if (!x) return;
-        pathInfo[x].pull(pathInfo[ch[x][0]], pathInfo[ch[x][1]]);
         info[x].pull(info[ch[x][0]], info[ch[x][1]]);
-        info[x] += subtreeInfo[x];
     }
     void pushAll(int x) {
         if (!isrt(x)) pushAll(p[x]);
@@ -78,15 +74,15 @@ struct LinkCutTree { // 1-based
     void splay(int x) { // x 旋轉到當前的根
         pushAll(x);
         for (int f = p[x]; f = p[x], !isrt(x); rotate(x))
-        if (!isrt(f)) rotate(pos(x) == pos(f) ? f : x);
+            if (!isrt(f)) rotate(pos(x) == pos(f) ? f : x);
     }
-    // 第二次 access 可以回傳 LCA
+    // access(x), access(y) 可以回傳 LCA
     int access(int x) { // 根到 x 換成實鏈
         int c;
         for (c = 0; x; c = x, x = p[x]) {
             splay(x);
-            subtreeInfo[x] += info[ch[x][1]];
-            subtreeInfo[x] -= info[c];
+            if (ch[x][1]) info[x] += info[ch[x][1]]; // 原右子樹轉虛邊
+            if (c) info[x] -= info[c];               // 虛邊轉新右子樹
             ch[x][1] = c;
             pull(x);
         }
@@ -100,17 +96,17 @@ struct LinkCutTree { // 1-based
         while (ch[x][0]) x = ch[x][0];
         splay(x); return x;
     }
-    void split(int rt, int x) {
+    void split(int rt, int x) { // 以 rt 為根, x 為子樹根
         makeRoot(x), access(rt), splay(rt);
     }
-    void link(int rt, int x) {
+    void link(int rt, int x) { // 以 rt 為根, x 為子樹根
         makeRoot(rt);
         access(x), splay(x);
         p[rt] = x;
-        subtreeInfo[x] += info[rt];
+        info[x] += info[rt]; // rt 成為 x 的虛子樹
         pull(x);
     }
-    void cut(int rt, int x) {
+    void cut(int rt, int x) { // 以 rt 為根, x 為子樹根
         split(rt, x);
         ch[rt][0] = p[x] = 0;
         pull(rt);
@@ -121,25 +117,26 @@ struct LinkCutTree { // 1-based
     bool neighbor(int x, int y) {
         if (!connected(x, y)) return false;
         split(x, y);
-        return pathInfo[x].siz == 2;
+        return info[x].siz == 2; // psiz
     }
-    void modify(int x, const Info &v) {
+    void modify(int x, const Info &i) {
         access(x), splay(x);
-        info[x] = pathInfo[x] = v, pull(x);
-    }
-    void pathApply(int x, int y, const Tag &v) {
-        assert(connected(x, y));
-        split(x, y), apply(x, v);
+        info[x].modify(i);
+        pull(x);
     }
     Info pathQuery(int x, int y) {
         assert(connected(x, y));
-        split(x, y); return pathInfo[x];
+        split(x, y); return info[x];
     }
-    Info subtreeQuery(int rt, int x) {
+    Info subtreeQuery(int rt, int x) { // 以 rt 當 root, x 的 subtree
         assert(connected(rt, x));
-        split(rt, x);
-        auto res = subtreeInfo[x];
-        return res += pathQuery(x, x);
+        makeRoot(rt);
+        access(x), splay(x);
+        return info[x].asSubtree();
+    }
+    Info componentQuery(int x) {
+        makeRoot(x);
+        return info[x];
     }
 };
 

@@ -3,101 +3,67 @@
 using namespace std;
 using ll = long long;
 
-template<class Info, class Tag = bool()>
-struct SegmentTree { // [l, r), uncomment /**/ to lazy
+template<class Info> struct SegmentTree {
     int n;
     vector<Info> info;
-    SegmentTree() : n(0) {}
-    SegmentTree(int n_, Info v_ = Info()) {
-        init(n_, v_);
-    }
-
-    template<class T>
-    SegmentTree(vector<T> init_) {
-        init(init_);
-    }
-
-    void init(int n_, Info v_ = Info()) {
-        init(vector(n_, v_));
-    }
-
-    template<class T>
-    void init(vector<T> init_) {
-        n = init_.size();
-        info.assign(4 << __lg(n), Info());
-        function<void(int, int, int)> build = [&](int p, int l, int r) {
+    SegmentTree(int n) : n(n), info(4 << __lg(n)) {}
+    SegmentTree(const vector<Info> &v) : n(v.size()), info(4 << __lg(n)) {
+        auto build = [&](auto &&self, int l, int r, int p) {
             if (r - l == 1) {
-                info[p] = init_[l];
+                info[p] = v[l];
                 return;
             }
             int m = (l + r) / 2;
-            build(2 * p, l, m);
-            build(2 * p + 1, m, r);
+            self(self, l, m, 2 * p);
+            self(self, m, r, 2 * p + 1);
             pull(p);
         };
-        build(1, 0, n);
+        build(build, 0, n, 1);
     }
-    void pull(int p) {
-        info[p] = info[2 * p] + info[2 * p + 1];
-    }
-    void modify(int p, int l, int r, int x, const Info &v) {
+    void pull(int p) { info[p] = info[2 * p] + info[2 * p + 1]; }
+    void modify(int x, const Info &i) { modify(x, i, 0, n, 1); }
+    void modify(int x, const Info &i, int l, int r, int p) {
         if (r - l == 1) {
-            info[p] = v;
+            info[p] = i;
             return;
         }
         int m = (l + r) / 2;
-        if (x < m) {
-            modify(2 * p, l, m, x, v);
-        } else {
-            modify(2 * p + 1, m, r, x, v);
-        }
+        if (x < m) modify(x, i, l, m, 2 * p);
+        else modify(x, i, m, r, 2 * p + 1);
         pull(p);
     }
-    void modify(int p, const Info &i) {
-        modify(1, 0, n, p, i);
-    }
-    Info query(int p, int l, int r, int ql, int qr) {
+    Info query(int ql, int qr) { return query(ql, qr, 0, n, 1); } 
+    Info query(int ql, int qr, int l, int r, int p) {
         if (qr <= l || ql >= r) return Info();
         if (ql <= l && r <= qr) return info[p];
         int m = (l + r) / 2;
-        return query(2 * p, l, m, ql, qr) + query(2 * p + 1, m, r, ql, qr);
+        return query(ql, qr, l, m, 2 * p) + query(ql, qr, m, r, 2 * p + 1);
     }
-    Info query(int ql, int qr) {
-        return query(1, 0, n, ql, qr);
-    }
-    template<class F>   // 尋找區間內，第一個符合條件的
-    int findFirst(int p, int l, int r, int x, int y, F &&pred) {
-        if (l >= y || r <= x) return -1;
-        if (l >= x && r <= y && !pred(info[p])) return -1;
+    template<class F> int findFirst(int ql, int qr, F &&f) {
+        return findFirst(ql, qr, f, 0, n, 1);
+    } // 若要找 last，先右子樹遞迴即可
+    template<class F> int findFirst(int ql, int qr, F &&f, int l, int r, int p) {
+        if (qr <= l || ql >= r) return -1;
+        if (ql <= l && r <= qr && !f(info[p])) return -1;
         if (r - l == 1) return l;
         int m = (l + r) / 2;
-        int res = findFirst(2 * p, l, m, x, y, pred);
-        if (res == -1)
-            res = findFirst(2 * p + 1, m, r, x, y, pred);
+        int res = findFirst(ql, qr, f, l, m, 2 * p);
+        if (res == -1) res = findFirst(ql, qr, f, m, r, 2 * p + 1);
         return res;
     }
-    template<class F>   // 若要找 last，先右子樹遞迴即可
-    int findFirst(int l, int r, F &&pred) {
-        return findFirst(1, 0, n, l, r, pred);
-    }
 };
-
 struct Info {
-    ll pref = 0;
     ll sum = 0;
-    ll suff = 0;
+    ll pre = 0;
+    ll suf = 0;
     ll mx = 0;
-    Info &operator=(const int &rhs) & {
-        pref = sum = suff = mx = rhs;
-        return *this;
-    }
 };
 Info operator+(const Info &a, const Info &b) {
     Info c;
     c.sum = a.sum + b.sum;
-    c.pref = max(a.sum + b.pref, a.pref);
-    c.suff = max(a.suff + b.sum, b.suff);
-    c.mx = max({a.mx, b.mx, a.suff + b.pref});
+    c.pre = max(a.pre, a.sum + b.pre);
+    c.suf = max(b.suf, b.sum + a.suf);
+    c.mx = max({a.mx, b.mx, a.suf + b.pre});
     return c;
 }
 
@@ -107,16 +73,18 @@ int main() {
 
     int n, q;
     cin >> n >> q;
-    vector<int> a(n);
+    vector<Info> a(n);
     for (int i = 0; i < n; i++) {
-        cin >> a[i];
+        int x;
+        cin >> x;
+        a[i].sum = a[i].pre = a[i].suf = a[i].mx = x;
     }
     SegmentTree<Info> seg(a);
-    
     while (q--) {
-        int l, r;
-        cin >> l >> r;
-        cout << max(0LL, seg.query(l - 1, r).mx) << "\n";
+        int a, b;
+        cin >> a >> b;
+        cout << max(0LL, seg.query(a - 1, b).mx) << "\n";
     }
+    
     return 0;
 }

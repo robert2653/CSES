@@ -5,39 +5,34 @@ using namespace std;
 using ll = long long;
 
 void solve() {
-    struct E {
-        int from, to, w, id;
-        bool operator<(const E &rhs) {
-            return to == rhs.to ? w > rhs.w : to < rhs.to;
-    }};
     int n; cin >> n;
-    vector<E> a(n + 1);
+    vector<array<int, 4>> a(n + 1);
     for (int i = 1; i <= n; i++) {
         int u, v, w; cin >> u >> v >> w;
-        a[i] = {u, v, w, i};
+        a[i] = {v, u, w, i};
     }
-    vector<array<ll, 2>> dp(n + 1); // w, time
-    vector<array<int, 2>> rec(n + 1); // 有沒選，上個是誰
     sort(a.begin(), a.end());
+    vector<array<ll, 4>> dp(n + 1);
+    // {w, time, 有沒選, 上個是誰}
+    vector<ll> vs(n + 1);
+    for (int i = 1; i <= n; i++) vs[i] = a[i][0];
     for (int i = 1; i <= n; i++) {
-        auto it = --lower_bound(all(a), E({0, a[i].from}),
-        [](E x, E y){ return x.to < y.to; });
-        int id = it - a.begin(); dp[i] = dp[i - 1];
-        ll nw = dp[id][0] + a[i].w;
-        ll nt = dp[id][1] + a[i].to - a[i].from;
+        int id = --lower_bound(all(vs), a[i][1]) - vs.begin();
+        dp[i] = dp[i - 1];
+        ll nw = dp[id][0] + a[i][2];
+        ll nt = dp[id][1] + a[i][0] - a[i][1];
         if (dp[i][0] < nw || dp[i][0] == nw && dp[i][1] > nt) {
-            dp[i] = {nw, nt}; rec[i] = {1, id};
+            dp[i] = {nw, nt, 1, id};
         }
     }
     vector<int> ans;
     for (int i = n; i != 0;) {
-        if (rec[i][0]) {
-            ans.push_back(a[i].id);
-            i = rec[i][1];
+        if (dp[i][2]) {
+            ans.push_back(a[i][3]);
+            i = dp[i][3];
         } else i--;
     }
-    cout << ans.size() << " " << dp[n][0] << " " << dp[n][1] << "\n";
-    sort(all(ans)); for (auto x : ans) cout << x << " ";
+    cout << dp[n][0] << "\n";
 }
 
 int main() {

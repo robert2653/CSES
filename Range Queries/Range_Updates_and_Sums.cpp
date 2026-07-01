@@ -1,167 +1,149 @@
 #include <bits/stdc++.h>
-#include <chrono>
 
 using namespace std;
 using ll = long long;
 
-template<class Info, class Tag = bool()>
-struct Treap {
+mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
+template<class T> void chmin(T &a, const T &b) { if (a > b) a = b; }
+template<class T> void chmax(T &a, const T &b) { if (a < b) a = b; }
+
+template<class Info, class Tag> struct LazySegmentTree {
+    int n;
     vector<Info> info;
     vector<Tag> tag;
-    vector<int> siz, par, rev, pri;
-    vector<array<int, 2>> ch;
-    Treap(int n) : info(n + 1), tag(n + 1), siz(n + 1),
-        par(n + 1), rev(n + 1), pri(n + 1), ch(n + 1) {
-        for (int i = 1; i <= n; i++)
-            siz[i] = 1, pri[i] = rand();
-    }
-    void apply(int t, const Tag &v) {
-        info[t].apply(siz[t], v);
-        tag[t].apply(v);
-    }
-    void push(int t) {
-        if (rev[t]) {
-            swap(ch[t][0], ch[t][1]);
-            if (ch[t][0]) rev[ch[t][0]] ^= 1;
-            if (ch[t][1]) rev[ch[t][1]] ^= 1;
-            rev[t] = 0;
-        }
-        apply(ch[t][0], tag[t]);
-        apply(ch[t][1], tag[t]);
-        tag[t] = Tag();
-    }
-    void pull(int t) {
-        siz[t] = 1 + siz[ch[t][0]] + siz[ch[t][1]];
-        info[t].pull(info[ch[t][0]], info[ch[t][1]]);
-    }
-    int merge(int a, int b) {
-        if (!a || !b) return a ? a : b;
-        push(a), push(b);
-        if (pri[a] > pri[b]) {
-            ch[a][1] = merge(ch[a][1], b);
-            pull(a);
-            return a;
-        } else {
-            ch[b][0] = merge(a, ch[b][0]);
-            pull(b);
-            return b;
-        }
-    }
-    pair<int, int> split(int t, int k) {
-        if (!t) return {0, 0};
-        push(t);
-        if (siz[ch[t][0]] < k) {
-            auto [a, b] = split(ch[t][1], k - siz[ch[t][0]] - 1);
-            ch[t][1] = a;
-            pull(t);
-            return {t, b};
-        } else {
-            auto [a, b] = split(ch[t][0], k);
-            ch[t][0] = b;
-            pull(t);
-            return {a, t};
-        }
-    }
-    template<class F>   // 尋找區間內，第一個符合條件的
-    int findFirst(int t, F &&pred) {
-        if (!t) return 0;
-        push(t);
-        if (!pred(info[t])) return 0;
-        if (!ch[t][0]) return 1;
-        int idx = findFirst(ch[t][0], pred);
-        if (!idx) idx = 1 + siz[ch[t][0]] + findFirst(ch[t][1], pred);
-        return idx;
-    }
-    int getPos(int rt, int t) { // get t's index in array
-        int res = siz[t] + 1;
-        while (t != rt) {
-            int p = par[t];
-            if (ch[p][1] == t) {
-                res += siz[ch[p][0]] + 1;
+    LazySegmentTree(int n) : n(n), info(4 << __lg(n)), tag(4 << __lg(n)) {}
+    LazySegmentTree(const vector<Info> &v) : n(v.size()), info(4 << __lg(n)), tag(4 << __lg(n)) {
+        auto build = [&](auto &&self, int l, int r, int p) {
+            if (r - l == 1) {
+                info[p] = v[l];
+                return;
             }
-            t = p;
+            int m = (l + r) / 2;
+            self(self, l, m, 2 * p);
+            self(self, m, r, 2 * p + 1);
+            pull(p);
+        };
+        build(build, 0, n, 1);
+    }
+    void pull(int p) { info[p] = info[2 * p] + info[2 * p + 1]; }
+    void apply(const Tag &t, int l, int r, int p) {
+        info[p].apply(t, l, r);
+        tag[p].apply(t);
+    }
+    void push(int l, int r, int p) {
+        int m = (l + r) / 2;
+        apply(tag[p], l, m, 2 * p);
+        apply(tag[p], m, r, 2 * p + 1); // tag 可位移 (m - l)
+        tag[p] = Tag();
+    }
+    void modify(int x, const Info &i) { modify(x, i, 0, n, 1); }
+    void modify(int x, const Info &i, int l, int r, int p) {
+        if (r - l == 1) {
+            info[p] = i;
+            return;
         }
+        int m = (l + r) / 2;
+        push(l, r, p);
+        if (x < m) modify(x, i, l, m, 2 * p);
+        else modify(x, i, m, r, 2 * p + 1);
+        pull(p);
+    }
+    Info query(int ql, int qr) { return query(ql, qr, 0, n, 1); } 
+    Info query(int ql, int qr, int l, int r, int p) {
+        if (qr <= l || ql >= r) return Info();
+        if (ql <= l && r <= qr) return info[p];
+        int m = (l + r) / 2;
+        push(l, r, p);
+        return query(ql, qr, l, m, 2 * p) + query(ql, qr, m, r, 2 * p + 1);
+    }
+    void rangeApply(int ql, int qr, const Tag &t) { rangeApply(ql, qr, t, 0, n, 1); }
+    void rangeApply(int ql, int qr, const Tag &t, int l, int r, int p) {
+        if (qr <= l || ql >= r) return;
+        if (ql <= l && r <= qr) {
+            apply(t, l, r, p); // tag 可位移 (l - ql)
+            return;
+        }
+        int m = (l + r) / 2;
+        push(l, r, p);
+        rangeApply(ql, qr, t, l, m, 2 * p);
+        rangeApply(ql, qr, t, m, r, 2 * p + 1);
+        pull(p);
+    }
+    template<class F> int findFirst(int ql, int qr, F &&f) {
+        return findFirst(ql, qr, f, 0, n, 1);
+    } // 若要找 last，先右子樹遞迴即可
+    template<class F> int findFirst(int ql, int qr, F &&f, int l, int r, int p) {
+        if (qr <= l || ql >= r) return -1;
+        if (ql <= l && r <= qr && !f(info[p])) return -1;
+        if (r - l == 1) return l;
+        int m = (l + r) / 2;
+        push(l, r, p);
+        int res = findFirst(ql, qr, f, l, m, 2 * p);
+        if (res == -1) res = findFirst(ql, qr, f, m, r, 2 * p + 1);
         return res;
     }
-    void getArray(int t, vector<Info> &a) {
-        if (!t) return;
-        push(t);
-        getArray(ch[t][0], a);
-        a.push_back(info[t]);
-        getArray(ch[t][1], a);
-    }
 };
-struct Tag {
-    int setVal;
-    ll add;
-    void apply(const Tag &t) {
-        if (t.setVal) {
-            setVal = t.setVal;
-            add = t.add;
-        } else {
-            add += t.add;
+struct Tag { // 有些 Tag 不用 push 例如 sweepLine
+    ll add = 0;
+    int set = 0;
+    void apply(const Tag &t) & {
+        if (t.set) {
+            set = t.set;
+            add = 0;
         }
+        add += t.add;
     }
 };
 struct Info {
-    ll val;
-    ll sum;
-    void apply(int siz, const Tag &t) {
-        if (t.setVal) {
-            val = t.setVal;
-            sum = 1LL * siz * t.setVal;
+    ll sum = 0;
+    void apply(const Tag &t, int l, int r) & {
+        if (t.set) {
+            sum = 1LL * t.set * (r - l);
         }
-        val += t.add;
-        sum += 1LL * siz * t.add;
-    }
-    void pull(const Info &l, const Info &r) {
-        sum = val + l.sum + r.sum;
-    }
+        sum += t.add * (r - l);
+    } /*
+    Info &operator=(const Info &i) & {
+        // do something... 部分 assignment 使用
+        return *this;
+    } */
 };
+Info operator+(const Info &a, const Info &b) {
+    Info c;
+    c.sum = a.sum + b.sum;
+    return c;
+}
+
 int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
 
-    auto start = chrono::high_resolution_clock::now();
-    // freopen("1.in", "r", stdin);
-    // freopen("1.out", "w", stdout);
-
     int n, q;
     cin >> n >> q;
-    vector<int> a(n);
+    vector<Info> init(n);
     for (int i = 0; i < n; i++) {
-        cin >> a[i];
+        cin >> init[i].sum;
     }
-    Treap<Info, Tag> tr(n);
-    int rt = 0;
-    for (int i = 0; i < n; i++) {
-        tr.info[i + 1].val = a[i];
-        tr.info[i + 1].sum = a[i];
-        rt = tr.merge(rt, i + 1);
-    }
-    for (int i = 0; i < q; i++) {
-        int t, a, b;
-        cin >> t >> a >> b;
-        int l, m, r;
-        tie(l, r) = tr.split(rt, a - 1);
-        tie(m, r) = tr.split(r, b - a + 1);
-        if (t == 1) {
-            int add;
-            cin >> add;
-            tr.apply(m, {0, add});
-        } else if (t == 2) {
-            int val;
-            cin >> val;
-            tr.apply(m, {val, 0});
+    LazySegmentTree<Info, Tag> seg(init);
+    while (q--) {
+        int op;
+        cin >> op;
+        if (op == 1) {
+            int a, b, x;
+            cin >> a >> b >> x;
+            a--, b--;
+            seg.rangeApply(a, b + 1, Tag{.add = x});
+        } else if (op == 2) {
+            int a, b, x;
+            cin >> a >> b >> x;
+            a--, b--;
+            seg.rangeApply(a, b + 1, Tag{.set = x});
         } else {
-            ll res = tr.info[m].sum;
-            cout << res << "\n";
+            int a, b;
+            cin >> a >> b;
+            a--, b--;
+            cout << seg.query(a, b + 1).sum << "\n";
         }
-        rt = tr.merge(tr.merge(l, m), r);
     }
-
-    auto end = chrono::high_resolution_clock::now();
-    auto duration = chrono::duration_cast<chrono::milliseconds>(end - start);
-    cerr << "Time: " << duration.count() << " ms" << endl;
+    
     return 0;
 }

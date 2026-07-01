@@ -4,60 +4,96 @@
 using namespace std;
 using ll = long long;
 
-const int N = 2E5;
-const int Lg = __lg(N); // __lg(max(n, qi)), [0, Lg]
-int up[N][Lg + 1];
-vector<int> dep, dfn;
-void build(int n, vector<vector<int>> &g, int rt = 0) {
-    dep.assign(n, 0); dfn.assign(n, 0);
-    int cur = 0;
-    auto dfs = [&](auto self, int x, int p) -> void {
-        dfn[x] = cur++;
-        up[x][0] = p;
-        for (int i = 1; i <= Lg; i++) {
-            int nxt = up[x][i - 1];
-            up[x][i] = up[nxt][i - 1];
+struct HLD {
+    int n, cur;
+    vector<int> siz, top, dep, par, in, out, seq;
+    vector<vector<int>> adj;
+    HLD(int n) : n(n), cur(0) {
+        siz.resize(n); top.resize(n); dep.resize(n);
+        par.resize(n); in.resize(n); out.resize(n);
+        seq.resize(n); adj.assign(n, {});
+    }
+    void addEdge(int u, int v) {
+        adj[u].push_back(v);
+        adj[v].push_back(u);
+    }
+    void work(int rt = 0) {
+        top[rt] = rt;
+        dep[rt] = 0;
+        par[rt] = -1;
+        dfs1(rt); dfs2(rt);
+    }
+    void dfs1(int u) {
+        if (par[u] != -1) adj[u].erase(find(adj[u].begin(), adj[u].end(), par[u]));
+        siz[u] = 1;
+        for (auto &v : adj[u]) {
+            par[v] = u, dep[v] = dep[u] + 1;
+            dfs1(v);
+            siz[u] += siz[v];
+            if (siz[v] > siz[adj[u][0]]) {
+                swap(v, adj[u][0]);
+            } // 讓 adj[u][0] 是重子節點
         }
-        for (auto y : g[x]) {
-            if (y == p) continue;
-            up[y][0] = x;
-            dep[y] = dep[x] + 1;
-            self(self, y, x);
+    }
+    void dfs2(int u) {
+        in[u] = cur++;
+        seq[in[u]] = u; // dfn 對應的編號
+        for (auto v : adj[u]) {
+            top[v] = v == adj[u][0] ? top[u] : v;
+            dfs2(v);
         }
-    };
-    dfs(dfs, rt, rt);
-}
-int lca(int a, int b) {
-    if (dep[a] < dep[b]) swap(a, b);
-    int pull = dep[a] - dep[b];
-    for (int i = 0; i <= Lg; i++)
-        if (pull & (1 << i)) a = up[a][i];
-    if (a == b) return a;
-    for (int i = Lg; i >= 0; i--)
-        if (up[a][i] != up[b][i])
-            a = up[a][i], b = up[b][i];
-    return up[a][0];
-}
-int jump(int x, int k) {
-    for (int i = Lg; i >= 0; i--)
-        if (k >> i & 1) {
-            x = up[x][i];
+        out[u] = cur;
+    }
+    int lca(int u, int v) {
+        while (top[u] != top[v]) {
+            if (dep[top[u]] > dep[top[v]]) {
+                u = par[top[u]];
+            } else {
+                v = par[top[v]];
+            }
         }
-    return x;
-}
-int dist(int a, int b) {
-    return dep[a] + dep[b] - 2 * dep[lca(a, b)];
-}
+        return dep[u] < dep[v] ? u : v;
+    }
+    int dist(int u, int v) {
+        return dep[u] + dep[v] - 2 * dep[lca(u, v)];
+    }
+    int jump(int u, int k) {
+        if (dep[u] < k) return -1;
+        int d = dep[u] - k;
+        while (dep[top[u]] > d) u = par[top[u]];
+        return seq[in[u] - dep[u] + d];
+    }
+    bool isAncester(int u, int v) {
+        return in[u] <= in[v] && in[v] < out[u];
+    }
+    int rootedParent(int rt, int v) {
+        if (rt == v) return rt;
+        if (!isAncester(v, rt)) return par[v];
+        auto it = upper_bound(adj[v].begin(), adj[v].end(), rt,
+            [&](int x, int y) {
+                return in[x] < in[y];
+            }) - 1;
+        return *it;
+    }
+    int rootedSize(int rt, int v) {
+        if (rt == v) return n;
+        if (!isAncester(v, rt)) return siz[v];
+        return n - siz[rootedParent(rt, v)];
+    }
+    int rootedLca(int rt, int a, int b) {
+        return lca(rt, a) ^ lca(a, b) ^ lca(b, rt);
+    }
+};
 
+// 隨編選一點當根，由深到淺選，用重心剖分維護
 int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
 
-    // freopen("test_input.txt", "r", stdin);
-
     int n, k;
     cin >> n >> k;
     vector<vector<int>> g(n);
+    HLD hld(n);
     for (int i = 0; i < n - 1; i++) {
         int u, v;
         cin >> u >> v;
@@ -65,11 +101,13 @@ int main() {
         v--;
         g[u].push_back(v);
         g[v].push_back(u);
+        hld.addEdge(u, v);
     }
+    hld.work();
 
     vector<bool> vis(n);
     vector<int> siz(n), par(n, -1);
-    auto findSize = [&](auto self, int u, int p) -> int {
+    auto findSize = [&](auto &&self, int u, int p) -> int {
         siz[u] = 1;
         for (int v : g[u]) {
             if (v == p || vis[v]) continue;
@@ -77,27 +115,23 @@ int main() {
         }
         return siz[u];
     };
-    auto findCen = [&](auto self, int u, int p, int sz) -> int {
+    auto findCen = [&](auto &&self, int u, int p, int sz) -> int {
         for (int v : g[u]) {
             if (v == p || vis[v]) continue;
             if (siz[v] * 2 > sz) return self(self, v, u, sz);
         }
         return u;
     };
-    auto buildCen = [&](auto self, int u, int p) -> void {
+    auto buildCen = [&](auto &&self, int u, int p) -> void {
         findSize(findSize, u, p);
         int c = findCen(findCen, u, -1, siz[u]);
         vis[c] = true, par[c] = p;
         for (int v : g[c]) if (!vis[v]) self(self, v, c);
     };
-    auto start = chrono::high_resolution_clock::now();
     buildCen(buildCen, 0, -1);
-    auto end = chrono::high_resolution_clock::now();
-    auto duration = chrono::duration_cast<chrono::milliseconds>(end - start);
-    cerr << "建構時間: " << duration.count() << " ms\n";
 
     vector<int> dep(n);
-    auto getDep = [&](auto self, int u, int p) -> void {
+    auto getDep = [&](auto &&self, int u, int p) -> void {
         for (auto v : g[u]) {
             if (v == p) continue;
             dep[v] = dep[u] + 1;
@@ -113,19 +147,18 @@ int main() {
         return dep[a] > dep[b];
     });
 
-    build(n, g, 0);
     vector<int> ans;
-    vector<int> dp(n, n);
+    vector<int> dp(n, n);   // 維護重心樹上每個點到最近辦公室的距離，初始為無限大
     auto update = [&](int u) {
         dp[u] = 0;
         for (int i = 0, v = par[u]; v != -1; i++, v = par[v]) {
-            dp[v] = min(dp[v], dist(u, v));
+            dp[v] = min(dp[v], hld.dist(u, v));
         }
     };
     auto query = [&](int u) -> int {
         int res = dp[u];
         for (int i = 0, v = par[u]; v != -1; i++, v = par[v]) {
-            res = min(res, dp[v] + dist(u, v));
+            res = min(res, dp[v] + hld.dist(u, v));
         }
         return res;
     };
@@ -141,9 +174,6 @@ int main() {
     for (auto x : ans) {
         cout << x + 1 << " \n"[x == ans.back()];
     }
-    auto end2 = chrono::high_resolution_clock::now();
-    duration = chrono::duration_cast<chrono::milliseconds>(end2 - end);
-    cerr << "查詢時間: " << duration.count() << " ms\n";
 
     return 0;
 }

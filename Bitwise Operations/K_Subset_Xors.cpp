@@ -24,18 +24,15 @@ int main() {
     for (int i = 0; i < n; i++) {
         add(basis, a[i]);
     }
-    sort(basis.rbegin(), basis.rend());
-    // 然後再最簡化列梯
-    for (auto i = basis.rbegin(); i != basis.rend(); i++) {
-        for (auto j = next(i); j != basis.rend(); j++) {
+    sort(basis.begin(), basis.end()); // 最簡化列梯
+    for (auto i = basis.begin(); i != basis.end(); i++) {
+        for (auto j = next(i); j != basis.end(); j++) {
             *j = min(*j, *j ^ *i);
         }
     }
-    sort(basis.begin(), basis.end());
  
     int lg = __lg(k);
-    int rep = n - basis.size(); // 1 << rep
-    rep = min(k, 1 << min(lg + 1, rep));
+    int rep = min(k, 1 << min(lg + 1, n - int(basis.size())));
 
     vector<int> v;
     for (int i = 0; k; i++) {

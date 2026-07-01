@@ -1,111 +1,101 @@
-// 線段樹
-// 左(s < t): dis = (pizza[s] - s) + t;
-// 右(t < s): dis = (pizza[s] + s) - t;
-//          8  6  4  5  7  5
-//   left:  7  4  1  1  2  -1
-//  right:  9  8  7  9  12 11
-//                          1:1~6
-//           2:1~3                          3:4~6
-//   4:1~2           5:3            6:4~5           7:6
-// 8:1    9:2    10:x    11:x    12:4    13:5   14:x    15:x
 #include <bits/stdc++.h>
-using namespace std;
-#define all(x) (x).begin(), (x).end()
-#define endl "\n"
-#define rep(i, st, n) for(int i = st; i < n; i++)
-#define sz size()
-#define pb(x) push_back(x)
-#define ppb pop_back()
-#define pp pop()
-#define tp top()
-#define ph(x) push(x)
-#define IO ios_base::sync_with_stdio(0); cin.tie(0);
-#define left_child 2*now
-#define right_child 2*now+1
-typedef long long int ll;
-typedef pair<int, int> pii;
-typedef vector<int> vi;
-typedef vector<pii> vii;
-typedef struct{ 
-    int from; int to;
-    ll weight;
-} edge;
-const ll inf = 1LL << 62;
-const int maxn = 2e5+5;
 
-vector<int> min_left(4*maxn, INT_MAX);
-vector<int> min_right(4*maxn, INT_MAX);
-int pizza[maxn];
-int n, q;
-void build(int L, int R, int now){
-    if(L == R){
-        min_left[now] = pizza[L]-L;
-        min_right[now] = pizza[L]+L;
-        return;
+using namespace std;
+using ll = long long;
+
+mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
+template<class T> void chmin(T &a, const T &b) { if (a > b) a = b; }
+template<class T> void chmax(T &a, const T &b) { if (a < b) a = b; }
+
+template<class Info> struct SegmentTree {
+    int n;
+    vector<Info> info;
+    SegmentTree(int n) : n(n), info(4 << __lg(n)) {}
+    SegmentTree(const vector<Info> &v) : n(v.size()), info(4 << __lg(n)) {
+        auto build = [&](auto &&self, int l, int r, int p) {
+            if (r - l == 1) {
+                info[p] = v[l];
+                return;
+            }
+            int m = (l + r) / 2;
+            self(self, l, m, 2 * p);
+            self(self, m, r, 2 * p + 1);
+            pull(p);
+        };
+        build(build, 0, n, 1);
     }
-    int M = (L + R) / 2;
-    build(L, M, left_child);
-    build(M + 1, R, right_child);
-    min_left[now] = min(min_left[left_child], min_left[right_child]);
-    min_right[now] = min(min_right[left_child], min_right[right_child]);
-}
-int left_query(int l, int r, int L, int R, int now){
-    if(l <= L && R <= r)
-        return min_left[now];
-    int M = (L + R) / 2;
-    if(r <= M)
-        return left_query(l, r, L, M, left_child);
-    else if(l > M) 
-        return left_query(l, r, M + 1, R, right_child);
-    else 
-        return min(left_query(l, r, L, M, left_child), 
-                   left_query(l, r, M + 1, R, right_child));
-}
-int right_query(int l, int r, int L, int R, int now){
-    if(l <= L && R <= r)
-        return min_right[now];
-    int M = (L + R) / 2;
-    if(r <= M) 
-        return right_query(l, r, L, M, left_child);
-    else if(l > M) 
-        return right_query(l, r, M + 1, R, right_child);
-    else
-        return min(right_query(l, r, L, M, left_child), right_query(l, r, M + 1, R, right_child));
-}
-void modify(int p, int x, int L, int R, int now){
-    if(L == R){
-        min_left[now] = x-L;
-        min_right[now] = x+L;
-        return;
+    void pull(int p) { info[p] = info[2 * p] + info[2 * p + 1]; }
+    void modify(int x, const Info &i) { modify(x, i, 0, n, 1); }
+    void modify(int x, const Info &i, int l, int r, int p) {
+        if (r - l == 1) {
+            info[p] = i;
+            return;
+        }
+        int m = (l + r) / 2;
+        if (x < m) modify(x, i, l, m, 2 * p);
+        else modify(x, i, m, r, 2 * p + 1);
+        pull(p);
     }
-    int M = (L + R) / 2;
-    if(p <= M)
-        modify(p, x, L, M, left_child);
-    else 
-        modify(p, x, M + 1, R, right_child);
-    min_left[now] = min(min_left[left_child], min_left[right_child]);
-    min_right[now] = min(min_right[left_child], min_right[right_child]);
+    Info query(int ql, int qr) { return query(ql, qr, 0, n, 1); } 
+    Info query(int ql, int qr, int l, int r, int p) {
+        if (qr <= l || ql >= r) return Info();
+        if (ql <= l && r <= qr) return info[p];
+        int m = (l + r) / 2;
+        return query(ql, qr, l, m, 2 * p) + query(ql, qr, m, r, 2 * p + 1);
+    }
+    template<class F> int findFirst(int ql, int qr, F &&f) {
+        return findFirst(ql, qr, f, 0, n, 1);
+    } // 若要找 last，先右子樹遞迴即可
+    template<class F> int findFirst(int ql, int qr, F &&f, int l, int r, int p) {
+        if (qr <= l || ql >= r) return -1;
+        if (ql <= l && r <= qr && !f(info[p])) return -1;
+        if (r - l == 1) return l;
+        int m = (l + r) / 2;
+        int res = findFirst(ql, qr, f, l, m, 2 * p);
+        if (res == -1) res = findFirst(ql, qr, f, m, r, 2 * p + 1);
+        return res;
+    }
+};
+const int inf = 2E9;
+struct Info {
+    array<int, 2> mn = {inf, inf};
+};
+Info operator+(const Info &a, const Info &b) {
+    Info c;
+    c.mn[0] = min(a.mn[0], b.mn[0]);
+    c.mn[1] = min(a.mn[1], b.mn[1]);
+    return c;
 }
-int main(){
-    IO;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, q;
     cin >> n >> q;
-    rep(i, 1, n+1){
-        int p; cin >> p;
-        pizza[i] = p;
+    vector<Info> a(n);
+    for (int i = 0; i < n; i++) {
+        int x;
+        cin >> x;
+        a[i].mn[0] = x - i;
+        a[i].mn[1] = x + i;
     }
-    build(1, n, 1);
-    // rep(i, 1, 4*n+1) cout << i << " : " << min_left[i] << endl;
-    // rep(i, 1, 4*n+1) cout << i << " : " << min_right[i] << endl;
-    rep(i, 0, q){
-        int op; cin >> op;
-        if(op == 1){
-            int p, x; cin >> p >> x;
-            modify(p, x, 1, n, 1);
-        }
-        else {
-            int p; cin >> p;
-            int ans = min(left_query(1, p, 1, n, 1) + p, right_query(p, n, 1, n, 1) - p);
-            cout << ans << endl;
+    SegmentTree<Info> seg(a);
+    while (q--) {
+        int op;
+        cin >> op;
+        if (op == 1) {
+            int k, x;
+            cin >> k >> x;
+            k--;
+            seg.modify(k, {x - k, x + k});
+        } else {
+            int k;
+            cin >> k;
+            k--;
+            cout << min(seg.query(0, k + 1).mn[0] + k, seg.query(k, n).mn[1] - k) << "\n";
         }
     }
+    
+    return 0;
 }

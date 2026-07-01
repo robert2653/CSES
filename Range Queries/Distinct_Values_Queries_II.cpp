@@ -1,198 +1,135 @@
 #include <bits/stdc++.h>
- 
+
 using namespace std;
 using ll = long long;
- 
-template<class Info, class Tag = bool()>
-struct SegmentTree { // [l, r), uncomment /**/ to lazy
+
+mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
+template<class T> void chmin(T &a, const T &b) { if (a > b) a = b; }
+template<class T> void chmax(T &a, const T &b) { if (a < b) a = b; }
+
+template<class Info> struct SegmentTree {
     int n;
     vector<Info> info;
-    /*
-    vector<Tag> tag;
-    */
-    template<class T>
-    SegmentTree(const vector<T> &init) {
-        n = init.size();
-        info.assign(4 << __lg(n), Info());
-        /*
-        tag.assign(4 << __lg(n), Tag());
-        */
-        function<void(int, int, int)> build = [&](int p, int l, int r) {
+    SegmentTree(int n) : n(n), info(4 << __lg(n)) {}
+    SegmentTree(const vector<Info> &v) : n(v.size()), info(4 << __lg(n)) {
+        auto build = [&](auto &&self, int l, int r, int p) {
             if (r - l == 1) {
-                info[p] = init[l];
+                info[p] = v[l];
                 return;
             }
             int m = (l + r) / 2;
-            build(2 * p, l, m);
-            build(2 * p + 1, m, r);
+            self(self, l, m, 2 * p);
+            self(self, m, r, 2 * p + 1);
             pull(p);
         };
-        build(1, 0, n);
+        build(build, 0, n, 1);
     }
-    void pull(int p) {
-        info[p] = info[2 * p] + info[2 * p + 1];
-    }
-    /*
-    void apply(int p, int l, int r, const Tag &v) {
-        info[p].apply(l, r, v);
-        tag[p].apply(v);
-    }
-    void push(int p, int l, int r) {
-        int m = (l + r) / 2;
-        if (r - l >= 1) {
-            apply(2 * p, l, m, tag[p]);
-            apply(2 * p + 1, m, r, tag[p]);
-        }
-        tag[p] = Tag();
-    }
-    */
-    void modify(int p, int l, int r, int x, const Info &v) {
+    void pull(int p) { info[p] = info[2 * p] + info[2 * p + 1]; }
+    void modify(int x, const Info &i) { modify(x, i, 0, n, 1); }
+    void modify(int x, const Info &i, int l, int r, int p) {
         if (r - l == 1) {
-            info[p] = v;
+            info[p] = i;
             return;
         }
         int m = (l + r) / 2;
-        /*
-        push(p, l, r);
-        */
-        if (x < m) {
-            modify(2 * p, l, m, x, v);
-        } else {
-            modify(2 * p + 1, m, r, x, v);
-        }
+        if (x < m) modify(x, i, l, m, 2 * p);
+        else modify(x, i, m, r, 2 * p + 1);
         pull(p);
     }
-    void modify(int p, const Info &i) {
-        modify(1, 0, n, p, i);
-    }
-    Info query(int p, int l, int r, int ql, int qr) {
+    Info query(int ql, int qr) { return query(ql, qr, 0, n, 1); } 
+    Info query(int ql, int qr, int l, int r, int p) {
         if (qr <= l || ql >= r) return Info();
         if (ql <= l && r <= qr) return info[p];
         int m = (l + r) / 2;
-        /*
-        push(p, l, r);
-        */
-        return query(2 * p, l, m, ql, qr) + query(2 * p + 1, m, r, ql, qr);
+        return query(ql, qr, l, m, 2 * p) + query(ql, qr, m, r, 2 * p + 1);
     }
-    Info query(int ql, int qr) {
-        return query(1, 0, n, ql, qr);
-    }
-    /*
-    void rangeApply(int p, int l, int r, int ql, int qr, const Tag &v) {
-        if (qr <= l || ql >= r) return;
-        if (ql <= l && r <= qr) {
-            apply(p, l, r, v);
-            return;
-        }
-        int m = (l + r) / 2;
-        push(p, l, r);
-        rangeApply(2 * p, l, m, ql, qr, v);
-        rangeApply(2 * p + 1, m, r, ql, qr, v);
-        pull(p);
-    }
-    void rangeApply(int l, int r, const Tag &v) {
-        rangeApply(1, 0, n, l, r, v);
-    }
-    */
-    template<class F>   // 尋找區間內，第一個符合條件的
-    int findFirst(int p, int l, int r, int x, int y, F &&pred) {
-        if (l >= y || r <= x) return -1;
-        if (l >= x && r <= y && !pred(info[p])) return -1;
+    template<class F> int findFirst(int ql, int qr, F &&f) {
+        return findFirst(ql, qr, f, 0, n, 1);
+    } // 若要找 last，先右子樹遞迴即可
+    template<class F> int findFirst(int ql, int qr, F &&f, int l, int r, int p) {
+        if (qr <= l || ql >= r) return -1;
+        if (ql <= l && r <= qr && !f(info[p])) return -1;
         if (r - l == 1) return l;
         int m = (l + r) / 2;
-        /*
-        push(p, l, r);
-        */
-        int res = findFirst(2 * p, l, m, x, y, pred);
-        if (res == -1)
-            res = findFirst(2 * p + 1, m, r, x, y, pred);
+        int res = findFirst(ql, qr, f, l, m, 2 * p);
+        if (res == -1) res = findFirst(ql, qr, f, m, r, 2 * p + 1);
         return res;
     }
-    template<class F>   // 若要找 last，先右子樹遞迴即可
-    int findFirst(int l, int r, F &&pred) {
-        return findFirst(1, 0, n, l, r, pred);
-    }
 };
-struct Info_Prv {
+struct Info {
     int mx = -1;
-    Info_Prv &operator=(const int &rhs) & {
-        mx = rhs;
-        return *this;
-    }
 };
-Info_Prv operator+(const Info_Prv &a, const Info_Prv &b) {
-    return { max(a.mx, b.mx) };
+Info operator+(const Info &a, const Info &b) {
+    Info c;
+    c.mx = max(a.mx, b.mx);
+    return c;
 }
+// 確保區間 [l, r] 內每個節點的值上次出現的位置都小於 l
 
-void solve_prv() {
+void solve() {
     int n, q;
     cin >> n >> q;
     vector<int> a(n);
-    vector<int> sorted;
-    vector<array<int, 3>> qry;
-    vector<int> prv(n, -1);
     for (int i = 0; i < n; i++) {
         cin >> a[i];
-        sorted.push_back(a[i]);
     }
+    auto s = a;
+
+    vector<array<int, 3>> qry(q);
     for (int i = 0; i < q; i++) {
-        int op, p, x;
-        cin >> op >> p >> x;
-        if (op == 1) {
-            sorted.push_back(x);
-        }
-        qry.push_back({op, p, x});
+        int i1, i2, i3;
+        cin >> i1 >> i2 >> i3;
+        qry[i] = {i1, i2, i3};
+        if (i1 == 1) s.push_back(i3);
     }
-    sort(sorted.begin(), sorted.end());
-    sorted.resize(unique(sorted.begin(), sorted.end()) - sorted.begin());
-    int m = sorted.size();
-    vector<set<int>> rec(m);
+    ranges::sort(s);
+    s.erase(unique(s.begin(), s.end()), s.end());
+    int m = s.size();
+    for (auto &x : a) x = lower_bound(s.begin(), s.end(), x) - s.begin();
+    for (auto &[i1, i2, i3] : qry) {
+        if (i1 == 1) i3 = lower_bound(s.begin(), s.end(), i3) - s.begin();
+    }
+
+    vector<set<int>> pos(m);
+    for (int i = 0; i < m; i++) {
+        pos[i].insert(-1);
+    }
+
+    SegmentTree<Info> seg(n);
     for (int i = 0; i < n; i++) {
-        a[i] = lower_bound(sorted.begin(), sorted.end(), a[i]) - sorted.begin();
-        if (!rec[a[i]].empty()) {
-            prv[i] = *rec[a[i]].rbegin();
-        }
-        rec[a[i]].insert(i);
+        int x = a[i];
+        seg.modify(i, {*pos[x].rbegin()});
+        pos[x].insert(i);
     }
-    SegmentTree<Info_Prv> seg(prv);
     for (int i = 0; i < q; i++) {
         int op = qry[i][0];
-        cin >> op;
         if (op == 1) {
             int p = qry[i][1] - 1;
             int x = qry[i][2];
-            x = lower_bound(sorted.begin(), sorted.end(), x) - sorted.begin();
-            // delete
-            auto now = rec[a[p]].lower_bound(p);
-            auto nxt = rec[a[p]].upper_bound(p);
-            if (nxt != rec[a[p]].end()) { // 更新 nxt 的 prv
-                if (now == rec[a[p]].begin()) { // 沒有前一個
-                    prv[*nxt] = -1;
-                } else {
-                    prv[*nxt] = *prev(now);
-                }
-                seg.modify(*nxt, {prv[*nxt]});
+            if (a[p] == x) continue;
+
+            int old = a[p];
+            auto pre = prev(pos[old].find(p));
+            auto nxt = next(pos[old].find(p));
+            if (nxt != pos[old].end()) {
+                seg.modify(*nxt, {*pre});
             }
-            rec[a[p]].erase(p);
-            // insert
+
+            pos[old].erase(p);
             a[p] = x;
-            rec[a[p]].insert(p);
-            now = rec[a[p]].lower_bound(p);
-            nxt = rec[a[p]].upper_bound(p);
-            if (now != rec[a[p]].begin()) { // 不是第一個
-                prv[p] = *prev(now);
-            } else {
-                prv[p] = -1;
-            }
-            seg.modify(p, {prv[p]});    // 更新 p 的 prv
-            if (nxt != rec[a[p]].end()) {   // 更新 nxt 的 prv 為 p
-                prv[*nxt] = p;
-                seg.modify(*nxt, {p});
+            
+            auto cur = pos[x].insert(p).first;
+            pre = prev(cur);
+            nxt = next(cur);
+            seg.modify(p, {*pre});
+            if (nxt != pos[x].end()) {
+                seg.modify(*nxt, {*cur});
             }
         } else {
             int l = qry[i][1] - 1;
-            int r = qry[i][2];
-            cout << (seg.query(l, r).mx >= l ? "NO\n" : "YES\n");
+            int r = qry[i][2] - 1;
+            int mx = seg.query(l, r + 1).mx;
+            cout << (mx < l ? "YES" : "NO") << "\n";
         }
     }
 }
@@ -200,7 +137,17 @@ void solve_prv() {
 int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
+
+    auto s = chrono::high_resolution_clock::now();
+
+    int t = 1;
+    // cin >> t;
+    while (t--) {
+        solve();
+    }
+
+    auto e = chrono::high_resolution_clock::now();
+    cerr << chrono::duration_cast<chrono::milliseconds>(e - s).count() << " ms\n";
     
-    solve_prv();
     return 0;
 }

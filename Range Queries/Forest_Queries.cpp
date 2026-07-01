@@ -1,53 +1,33 @@
 #include <bits/stdc++.h>
+
 using namespace std;
-#define all(x) (x).begin(), (x).end()
-#define endl "\n"
-#define rep(i, st, n) for(int i = st; i < n; i++)
-#define sz size()
-#define pb(x) push_back(x)
-#define ppb pop_back()
-#define IO ios_base::sync_with_stdio(0); cin.tie(0);
-#define init(x) memset(x, 0, sizeof(x));
-#define lp 2*now
-#define rp 2*now+1
-typedef long long int ll;
-typedef pair<int, int> pii;
-typedef vector<int> vi;
-typedef vector<pii> vii;
-typedef struct{
-    int from; int to;
-    ll weight;
-} edge;
-const ll inf = 1LL << 62;
-const int intf = INT_MAX;
-const int maxn = 2e5+5;
-int n, q; 
-int dp[1005][1005];
-void solve(){
-    memset(dp, 0, sizeof(dp));
+using ll = long long;
+
+mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
+template<class T> void chmin(T &a, const T &b) { if (a > b) a = b; }
+template<class T> void chmax(T &a, const T &b) { if (a < b) a = b; }
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, q;
     cin >> n >> q;
-    rep(i, 1, n+1){
-        rep(j, 1, n+1){
-            char tree; cin >> tree;
-            dp[i][j] = dp[i][j-1];
-            if(tree == '*'){
-                dp[i][j]++;
-            }
-        }
-        rep(j, 1, n+1){
-            dp[i][j] += dp[i-1][j];
+    vector<string> g(n);
+    for (int i = 0; i < n; i++) {
+        cin >> g[i];
+    }
+    vector<vector<int>> pre(n + 1, vector<int>(n + 1));
+    for (int i = 1; i <= n; i++) {
+        for (int j = 1; j <= n; j++) {
+            pre[i][j] = pre[i - 1][j] + pre[i][j - 1] - pre[i - 1][j - 1] + (g[i - 1][j - 1] == '*');
         }
     }
-    rep(i, 1, q+1){
-        int y1, x1, y2, x2; cin >> y1 >> x1 >> y2 >> x2;
-        cout << dp[y2][x2] - dp[y2][x1-1] - dp[y1-1][x2] + dp[y1-1][x1-1] << endl;
+    while (q--) {
+        int a, b, c, d;
+        cin >> a >> b >> c >> d;
+        cout << pre[c][d] - pre[a - 1][d] - pre[c][b - 1] + pre[a - 1][b - 1] << "\n";
     }
-}
-int main(){
-    IO;
-    solve();
-    // rep(i, 1, n+1){
-    //     rep(j, 1, n+1) cout << dp[i][j] << " ";
-    //     cout << endl;
-    // }
+    
+    return 0;
 }

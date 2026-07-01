@@ -1,100 +1,96 @@
-// maxpre(now) = max (maxpre(lp), sum(lp)+maxpre(rp)); 
 #include <bits/stdc++.h>
+
 using namespace std;
-#define all(x) (x).begin(), (x).end()
-#define endl "\n"
-#define rep(i, st, n) for(int i = st; i < n; i++)
-#define sz size()
-#define pb(x) push_back(x)
-#define ppb pop_back()
-#define IO ios_base::sync_with_stdio(0); cin.tie(0);
-#define init(x) memset(x, 0, sizeof(x));
-#define lp 2*now
-#define rp 2*now+1
-#define mid (L+R)/2
-typedef long long int ll;
-typedef pair<int, int> pii;
-typedef vector<int> vi;
-typedef vector<pii> vii;
-typedef struct{
-    int from; int to;
-    ll weight;
-} edge;
-const ll inf = 1LL << 62;
-const int intf = INT_MAX;
-const int maxn = 2e5+5;
+using ll = long long;
 
-typedef struct {
-    ll sum, pref;
-} Node;
-Node tree[maxn*4];
-int nums[maxn];
-ll ans;
-void build(int L, int R, int now){
-    if(L == R){
-        // tree[now].sum = tree[now].pref = nums[L];
-        tree[now].sum = nums[L];
-        tree[now].pref = nums[L];
-        return;
+template<class Info> struct SegmentTree {
+    int n;
+    vector<Info> info;
+    SegmentTree(int n) : n(n), info(4 << __lg(n)) {}
+    SegmentTree(const vector<Info> &v) : n(v.size()), info(4 << __lg(n)) {
+        auto build = [&](auto &&self, int l, int r, int p) {
+            if (r - l == 1) {
+                info[p] = v[l];
+                return;
+            }
+            int m = (l + r) / 2;
+            self(self, l, m, 2 * p);
+            self(self, m, r, 2 * p + 1);
+            pull(p);
+        };
+        build(build, 0, n, 1);
     }
-    int M = mid;
-    build(L, M, lp);
-    build(M+1, R, rp);
-    tree[now].sum = tree[lp].sum + tree[rp].sum;
-    tree[now].pref = max(tree[lp].pref, tree[lp].sum+tree[rp].pref);
-}
-void modify(int pos, int val, int L, int R, int now){
-    if(L == R){
-        // tree[now].sum = tree[now].pref = nums[L];
-        tree[now].sum = val;
-        tree[now].pref = val;
-        return;
-    }
-    int M = mid;
-    if(pos <= M) modify(pos, val, L, M, lp);
-    else modify(pos, val, M+1, R, rp);
-    tree[now].sum = tree[lp].sum + tree[rp].sum;
-    tree[now].pref = max(tree[lp].pref, tree[lp].sum+tree[rp].pref);
-}
-Node query(int l, int r, int L, int R, int now){    // query也要dp
-    if(l <= L && R <= r){
-        return tree[now];
-    }
-    int M = mid;
-    if(r <= M){
-        return query(l, r, L, M, lp);
-    }
-    else if(M < l){
-        return query(l, r, M+1, R, rp);
-    }
-    else {
-        Node q1 = query(l, r, L, M, lp);
-        Node q2 = query(l, r, M+1, R, rp);
-        return {q1.sum+q2.sum, max(q1.pref, q1.sum+q2.pref)};
-    }
-}
-void solve(){
-    int n, q; cin >> n >> q;
-    rep(i, 1, n+1){
-        int tmp; cin >> tmp;
-        nums[i] = tmp;
-    }
-    build(1, n, 1);
-    rep(i, 1, q+1){
-        int op; cin >> op;
-        if(op == 1){    // change
-            int pos, val; cin >> pos >> val;
-            modify(pos, val, 1, n, 1);
+    void pull(int p) { info[p] = info[2 * p] + info[2 * p + 1]; }
+    void modify(int x, const Info &i) { modify(x, i, 0, n, 1); }
+    void modify(int x, const Info &i, int l, int r, int p) {
+        if (r - l == 1) {
+            info[p] = i;
+            return;
         }
-        else {  // query
-            int l, r; cin >> l >> r;
-            Node ans = query(l, r, 1, n, 1);
-            cout << (ans.pref < 0 ? 0 : ans.pref) << endl;
-        }
+        int m = (l + r) / 2;
+        if (x < m) modify(x, i, l, m, 2 * p);
+        else modify(x, i, m, r, 2 * p + 1);
+        pull(p);
     }
+    Info query(int ql, int qr) { return query(ql, qr, 0, n, 1); } 
+    Info query(int ql, int qr, int l, int r, int p) {
+        if (qr <= l || ql >= r) return Info();
+        if (ql <= l && r <= qr) return info[p];
+        int m = (l + r) / 2;
+        return query(ql, qr, l, m, 2 * p) + query(ql, qr, m, r, 2 * p + 1);
+    }
+    template<class F> int findFirst(int ql, int qr, F &&f) {
+        return findFirst(ql, qr, f, 0, n, 1);
+    } // 若要找 last，先右子樹遞迴即可
+    template<class F> int findFirst(int ql, int qr, F &&f, int l, int r, int p) {
+        if (qr <= l || ql >= r) return -1;
+        if (ql <= l && r <= qr && !f(info[p])) return -1;
+        if (r - l == 1) return l;
+        int m = (l + r) / 2;
+        int res = findFirst(ql, qr, f, l, m, 2 * p);
+        if (res == -1) res = findFirst(ql, qr, f, m, r, 2 * p + 1);
+        return res;
+    }
+};
+struct Info {
+    ll sum = 0;
+    ll pre = 0;
+};
+Info operator+(const Info &a, const Info &b) {
+    Info c;
+    c.sum = a.sum + b.sum;
+    c.pre = max(a.pre, a.sum + b.pre);
+    c.pre = max(0LL, c.pre);
+    return c;
+}
 
-}
-int main(){
-    IO;
-    solve();
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, q;
+    cin >> n >> q;
+    vector<Info> a(n);
+    for (int i = 0; i < n; i++) {
+        cin >> a[i].sum;
+        a[i].pre = max(0LL, a[i].sum);
+    }
+    SegmentTree<Info> seg(a);
+    while (q--) {
+        int op;
+        cin >> op;
+        if (op == 1) {
+            int k, x;
+            cin >> k >> x;
+            k--;
+            seg.modify(k, {x, max<ll>(0LL, x)});
+        } else {
+            int l, r;
+            cin >> l >> r;
+            l--;
+            cout << seg.query(l, r).pre << "\n";
+        }
+    }
+    
+    return 0;
 }

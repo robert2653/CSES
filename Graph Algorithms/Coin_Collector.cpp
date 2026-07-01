@@ -7,19 +7,8 @@ struct SCC {
     int n, cur, cnt;
     vector<vector<int>> adj;
     vector<int> stk, dfn, low, bel;
-    SCC(int n_ = 0) { init(n_); }
-    void init(int n_) {
-        n = n_;
-        adj.assign(n, {});
-        dfn.assign(n, -1);
-        low.resize(n);
-        bel.assign(n, -1);
-        stk.clear();
-        cur = cnt = 0;
-    }
-    void addEdge(int u, int v) {
-        adj[u].push_back(v);
-    }
+    SCC(int n) : n(n), adj(n), dfn(n, -1), low(n), bel(n, -1) {}
+    void addEdge(int u, int v) { adj[u].push_back(v); }
     void dfs(int x) {
         dfn[x] = low[x] = cur++;
         stk.push_back(x);
@@ -42,22 +31,18 @@ struct SCC {
         }
     }
     vector<int> work() {
-        for (int i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++)
             if (dfn[i] == -1) dfs(i);
-        }
         return bel;
     }
     struct Graph {
         int n;
         vector<pair<int, int>> edges;
-        vector<int> siz;
-        vector<int> cnte;
+        vector<int> siz, cnte;
     };
     Graph compress() {
-        Graph g;
-        g.n = cnt;
-        g.siz.resize(cnt);
-        g.cnte.resize(cnt);
+        Graph g; g.n = cnt;
+        g.siz.resize(cnt); g.cnte.resize(cnt);
         for (int i = 0; i < n; i++) {
             g.siz[bel[i]]++;
             for (auto j : adj[i]) {
@@ -73,7 +58,7 @@ struct SCC {
 };
 
 int main() {
-    ios_base::sync_with_stdio(false);
+    ios::sync_with_stdio(false);
     cin.tie(nullptr);
 
     int n, m;
@@ -105,7 +90,7 @@ int main() {
 
     vector<ll> dp(scc_n);
     vector<bool> vis(scc_n);
-    auto dfs = [&](auto self, int x) -> ll {
+    auto dfs = [&](auto &&self, int x) -> ll {
         if (vis[x]) {
             return dp[x];
         }
